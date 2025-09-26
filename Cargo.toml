@@ -1,0 +1,31 @@
+[package]
+name = "minipas"
+version = "0.1.0"
+edition = "2021"
+description = "A minimal Pascal compiler written in Rust"
+authors = ["Your Name <your.email@example.com>"]
+license = "MIT"
+repository = "https://github.com/yourusername/minipas"
+readme = "README.md"
+keywords = ["compiler", "pascal", "education"]
+categories = ["command-line-utilities", "compilers"]
+
+[features]
+default = ["lalrpop"]
+lalrpop = ["lalrpop-util"]
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+logos = "0.13"
+lalrpop-util = { version = "0.20", optional = true }
+thiserror = "1.0"
+anyhow = "1.0"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "2.0"
+tempfile = "3.2"
+assert_matches = "1.5"
+
+[build-dependencies]
+version_check = "0.9"
