@@ -324,9 +324,15 @@ impl CodeGenerator {
         for stmt in stmts {
             match stmt {
                 Stmt::Block(block) => {
-                    self.enter_scope("");
-                    self.generate_block(block, None)?;
-                    self.exit_scope();
+                    // Only enter a new scope if the block has its own declarations
+                    if !block.consts.is_empty() || !block.types.is_empty() || !block.vars.is_empty() {
+                        self.enter_scope("");
+                        self.generate_block(block, None)?;
+                        self.exit_scope();
+                    } else {
+                        // For begin blocks without declarations, just generate the statements
+                        self.generate_statement(&block.statements)?;
+                    }
                 }
                 _ => {
                     self.generate_single_statement(stmt)?;
@@ -812,6 +818,11 @@ impl CodeGenerator {
                         self.emit("    cdq");
                         self.emit("    idiv edx");
                     }
+                    BinaryOp::IntDivide => {
+                        self.emit("    xchg eax, edx");
+                        self.emit("    cdq");
+                        self.emit("    idiv edx");
+                    }
                     BinaryOp::Modulo => {
                         self.emit("    xchg eax, edx");
                         self.emit("    cdq");
@@ -855,6 +866,15 @@ impl CodeGenerator {
                         self.emit("    or eax, edx");
                     }
                     BinaryOp::Xor => {
+                        self.emit("    xor eax, edx");
+                    }
+                    BinaryOp::BitwiseAnd => {
+                        self.emit("    and eax, edx");
+                    }
+                    BinaryOp::BitwiseOr => {
+                        self.emit("    or eax, edx");
+                    }
+                    BinaryOp::BitwiseXor => {
                         self.emit("    xor eax, edx");
                     }
                     _ => {

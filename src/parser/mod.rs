@@ -431,6 +431,9 @@ impl<'a> Parser<'a> {
                 self.next_token(); // Consume '='
                 let expr = self.parse_expression()?;
                 for id in &identifiers {
+                    // Register variable in symbol table
+                    self.declare_variable(id, var_type.clone())
+                        .map_err(|e| ParseError::Other(e.to_string()))?;
                     declarations.push(VariableDecl {
                         name: id.clone(),
                         var_type: var_type.clone(),
@@ -440,6 +443,9 @@ impl<'a> Parser<'a> {
                 true
             } else {
                 for id in &identifiers {
+                    // Register variable in symbol table
+                    self.declare_variable(id, var_type.clone())
+                        .map_err(|e| ParseError::Other(e.to_string()))?;
                     declarations.push(VariableDecl {
                         name: id.clone(),
                         var_type: var_type.clone(),

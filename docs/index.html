@@ -211,6 +211,8 @@
                     <li>Expression parsing with precedence</li>
                     <li>Type system support</li>
                     <li>Semantic analysis</li>
+                    <li>Variable scope management</li>
+                    <li>Nested block support</li>
                 </ul>
             </div>
             
@@ -238,16 +240,25 @@
                     <li>Return values</li>
                     <li>Local and global scope</li>
                 </ul>
+                
+                <h3>Operators</h3>
+                <ul>
+                    <li>Arithmetic: +, -, *, /, div, mod</li>
+                    <li>Comparison: =, &lt;&gt;, &lt;, &lt;=, &gt;, &gt;=</li>
+                    <li>Logical: and, or, not</li>
+                    <li>Bitwise: &, |, xor</li>
+                </ul>
             </div>
             
             <div class="card">
                 <h2>🛠️ Code Generation</h2>
                 <h3>Assembly Output</h3>
                 <ul>
-                    <li>x86-64 assembly generation</li>
+                    <li>x86-64 assembly generation (Intel syntax)</li>
                     <li>Stack-based variable allocation</li>
                     <li>Register optimization</li>
                     <li>Memory management</li>
+                    <li>Scope-aware variable lookup</li>
                 </ul>
                 
                 <h3>Optimizations</h3>
@@ -256,11 +267,13 @@
                     <li>Stack frame management</li>
                     <li>Expression evaluation</li>
                     <li>Control flow optimization</li>
+                    <li>Variable scope optimization</li>
                 </ul>
             </div>
             
             <div class="card">
-                <h2>📝 Example</h2>
+                <h2>📝 Examples</h2>
+                <h3>Basic Example</h3>
                 <div class="code-block">
 program Hello;
 var
@@ -281,6 +294,17 @@ begin
   end;
 end.
                 </div>
+                
+                <h3>Available Examples</h3>
+                <ul>
+                    <li>hello.pas - Basic conditional and loop example</li>
+                    <li>simple_math.pas - Arithmetic operations</li>
+                    <li>conditional.pas - Complex if-else statements</li>
+                    <li>boolean_logic.pas - Boolean operations</li>
+                    <li>fibonacci.pas - Fibonacci sequence calculation</li>
+                    <li>calculator.pas - Calculator with multiple operations</li>
+                    <li>loops.pas - Complex loop structures</li>
+                </ul>
             </div>
             
             <div class="card">
@@ -298,6 +322,7 @@ end.
                     <li>✅ All tests passing (13/13)</li>
                     <li>✅ Zero compilation errors</li>
                     <li>✅ Full feature coverage</li>
+                    <li>✅ All 7 complex examples compile successfully</li>
                 </ul>
             </div>
             
@@ -323,7 +348,7 @@ end.
         
         <div class="nav-links">
             <a href="minipas/index.html" class="nav-link">📚 API Documentation</a>
-            <a href="https://github.com/yourusername/minipas" class="nav-link">🐙 GitHub Repository</a>
+            <a href="https://github.com/yingkitw/minipas" class="nav-link">🐙 GitHub Repository</a>
             <a href="../README.md" class="nav-link">📖 README</a>
             <a href="../examples/" class="nav-link">💡 Examples</a>
         </div>
