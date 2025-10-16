@@ -5,7 +5,7 @@ pub mod enhanced_ast;
 
 pub use enhanced_ast::*;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Parameter {
     pub name: String,
     pub param_type: Type,
@@ -15,7 +15,7 @@ pub struct Parameter {
     pub default_value: Option<Expr>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Type {
     Integer,
     Real,
@@ -82,7 +82,7 @@ pub enum Type {
     },
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Literal {
     Integer(i64),
     Real(f64),
@@ -97,7 +97,7 @@ pub enum Literal {
     Nil,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Expr {
     Literal(Literal),
     Identifier(Vec<String>), // For record fields and nested scopes
@@ -209,7 +209,7 @@ pub enum Expr {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum BinaryOp {
     // Arithmetic
     Add,
@@ -255,7 +255,7 @@ pub enum BinaryOp {
     Custom(String),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum UnaryOp {
     Plus,
     Minus,
@@ -265,7 +265,7 @@ pub enum UnaryOp {
     Dereference,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct VariableDecl {
     pub name: String,
     pub var_type: Type,
@@ -275,19 +275,19 @@ pub struct VariableDecl {
     pub external_name: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TypeDecl {
     pub name: String,
     pub typ: Type,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ConstDecl {
     pub name: String,
     pub value: Expr,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum Stmt {
     Assignment {
         target: Expr,
@@ -367,26 +367,26 @@ pub enum Stmt {
     Block(Block),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum ForDirection {
     To,
     DownTo,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CaseArm {
     pub constants: Vec<Literal>,
     pub stmts: Vec<Stmt>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ExceptArm {
     pub exception_type: Option<String>,
     pub variable: Option<String>,
     pub body: Vec<Stmt>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Block {
     pub consts: Vec<ConstDecl>,
     pub types: Vec<TypeDecl>,
@@ -396,7 +396,7 @@ pub struct Block {
     pub statements: Vec<Stmt>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ProcedureDecl {
     pub name: String,
     pub params: Vec<Parameter>,
@@ -410,7 +410,7 @@ pub struct ProcedureDecl {
     pub calling_convention: Option<CallingConvention>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FunctionDecl {
     pub name: String,
     pub params: Vec<Parameter>,
@@ -425,14 +425,14 @@ pub struct FunctionDecl {
     pub calling_convention: Option<CallingConvention>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Program {
     pub name: String,
     pub uses: Vec<String>,
     pub block: Block,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Unit {
     pub name: String,
     pub uses: Vec<String>,
@@ -440,7 +440,7 @@ pub struct Unit {
     pub implementation: UnitImplementation,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UnitInterface {
     pub types: Vec<TypeDecl>,
     pub constants: Vec<ConstDecl>,
@@ -451,7 +451,7 @@ pub struct UnitInterface {
     pub interfaces: Vec<InterfaceDecl>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UnitImplementation {
     pub uses: Vec<String>,
     pub types: Vec<TypeDecl>,
@@ -465,7 +465,7 @@ pub struct UnitImplementation {
     pub finalization: Option<Vec<Stmt>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ClassDecl {
     pub name: String,
     pub parent: Option<String>,
@@ -479,7 +479,7 @@ pub struct ClassDecl {
     pub is_sealed: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct InterfaceDecl {
     pub name: String,
     pub parent_interfaces: Vec<String>,
@@ -487,7 +487,7 @@ pub struct InterfaceDecl {
     pub properties: Vec<PropertyDecl>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FieldDecl {
     pub name: String,
     pub field_type: Type,
@@ -496,7 +496,7 @@ pub struct FieldDecl {
     pub initializer: Option<Expr>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MethodDecl {
     pub name: String,
     pub params: Vec<Parameter>,
@@ -510,7 +510,7 @@ pub struct MethodDecl {
     pub body: Option<Vec<Stmt>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PropertyDecl {
     pub name: String,
     pub property_type: Type,
@@ -522,14 +522,14 @@ pub struct PropertyDecl {
     pub is_override: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum PropertyAccessor {
     Field(String),
     Method(String),
     Indexed(Box<PropertyAccessor>, Vec<Expr>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ConstructorDecl {
     pub name: String,
     pub params: Vec<Parameter>,
@@ -537,14 +537,14 @@ pub struct ConstructorDecl {
     pub body: Option<Vec<Stmt>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DestructorDecl {
     pub name: String,
     pub visibility: Visibility,
     pub body: Option<Vec<Stmt>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct OperatorDecl {
     pub operator: BinaryOp,
     pub left_type: Type,
@@ -555,7 +555,7 @@ pub struct OperatorDecl {
     pub is_class: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UnaryOperatorDecl {
     pub operator: UnaryOp,
     pub operand_type: Type,
@@ -565,7 +565,7 @@ pub struct UnaryOperatorDecl {
     pub is_class: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Visibility {
     Private,
     Protected,
@@ -573,7 +573,7 @@ pub enum Visibility {
     Published,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum CallingConvention {
     Default,
     CDecl,
@@ -587,20 +587,20 @@ pub enum CallingConvention {
     ThisCall,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct VariantPart {
     pub discriminant: String,
     pub discriminant_type: Box<Type>,
     pub variants: Vec<VariantCase>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct VariantCase {
     pub case_values: Vec<Literal>,
     pub fields: HashMap<String, Type>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct GenericType {
     pub name: String,
     pub type_parameters: Vec<TypeParameter>,
@@ -608,13 +608,13 @@ pub struct GenericType {
     pub body: Type,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TypeParameter {
     pub name: String,
     pub constraints: Vec<TypeConstraint>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum TypeConstraint {
     Class(String),
     Constructor,
@@ -622,13 +622,13 @@ pub enum TypeConstraint {
     Interface(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SpecializedType {
     pub generic_type: String,
     pub type_arguments: Vec<Type>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum TopLevelDecl {
     Program(Program),
     Unit(Unit),

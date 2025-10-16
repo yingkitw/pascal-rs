@@ -13,10 +13,12 @@ use minipas_ast::Unit;
 pub mod error;
 pub mod loader;
 pub mod resolver;
+pub mod ppu;
 
 pub use error::{ModuleError, ModuleResult};
 pub use loader::ModuleLoader;
 pub use resolver::ModuleResolver;
+pub use ppu::{PpuFile, PpuHeader, PPU_VERSION, PPU_MAGIC};
 
 /// Represents a compiled Pascal unit
 #[derive(Debug, Clone)]

@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use crate::{Module, ModuleError, ModuleResult};
+use crate::ppu::PpuFile;
 
 /// Loads Pascal units from the filesystem
 pub struct ModuleLoader {
@@ -107,6 +108,65 @@ impl ModuleLoader {
             if let (Some(cached_time), Ok(file_time)) = 
                 (cached.compile_time, self.get_unit_mtime(unit_name)) {
                 return cached_time >= file_time;
+            }
+        }
+        false
+    }
+    
+    /// Find a PPU file for a unit
+    pub fn find_ppu_file(&self, unit_name: &str) -> ModuleResult<PathBuf> {
+        let filename = format!("{}.ppu", unit_name.to_lowercase());
+        
+        for search_path in &self.search_paths {
+            let full_path = search_path.join(&filename);
+            if full_path.exists() {
+                return Ok(full_path);
+            }
+        }
+        
+        Err(ModuleError::ModuleNotFound(unit_name.to_string()))
+    }
+    
+    /// Load a unit from a PPU file
+    pub fn load_from_ppu(&self, unit_name: &str) -> ModuleResult<minipas_ast::Unit> {
+        let ppu_path = self.find_ppu_file(unit_name)?;
+        let ppu = PpuFile::read_from_file(&ppu_path)
+            .map_err(|e| ModuleError::LoadError(unit_name.to_string(), e.to_string()))?;
+        
+        // Verify checksums
+        if !ppu.verify_checksums() {
+            return Err(ModuleError::LoadError(
+                unit_name.to_string(),
+                "PPU checksum verification failed".to_string(),
+            ));
+        }
+        
+        Ok(ppu.unit)
+    }
+    
+    /// Save a unit to a PPU file
+    pub fn save_to_ppu(&self, unit: &minipas_ast::Unit, output_dir: Option<&Path>) -> ModuleResult<PathBuf> {
+        let mut ppu = PpuFile::new(unit.clone());
+        
+        // Determine output path
+        let dir = output_dir.unwrap_or_else(|| Path::new("."));
+        let filename = format!("{}.ppu", unit.name.to_lowercase());
+        let ppu_path = dir.join(filename);
+        
+        // Write PPU file
+        ppu.write_to_file(&ppu_path)
+            .map_err(|e| ModuleError::LoadError(unit.name.clone(), e.to_string()))?;
+        
+        Ok(ppu_path)
+    }
+    
+    /// Check if a PPU file exists and is newer than the source
+    pub fn is_ppu_up_to_date(&self, unit_name: &str) -> bool {
+        if let (Ok(ppu_path), Ok(src_path)) = (self.find_ppu_file(unit_name), self.find_unit_file(unit_name)) {
+            if let (Ok(ppu_meta), Ok(src_meta)) = (fs::metadata(&ppu_path), fs::metadata(&src_path)) {
+                if let (Ok(ppu_time), Ok(src_time)) = (ppu_meta.modified(), src_meta.modified()) {
+                    return ppu_time >= src_time;
+                }
             }
         }
         false
