@@ -7,6 +7,13 @@ pub mod enhanced_codegen;
 pub mod traits;
 pub mod mocks;
 pub mod unit_codegen;
+pub mod symbol_table;
+pub mod type_checker;
+pub mod optimizer;
+pub mod register_allocator;
+pub mod advanced_optimizer;
+pub mod advanced_types;
+pub mod simd;
 
 pub use enhanced_codegen::{EnhancedCodeGenerator, TargetArchitecture, CallingConvention, Register, Instruction, Operand, MemoryOperand, Label, FunctionInfo, ParameterInfo, ParameterLocation, TypeInfo, VariableInfo as EnhancedVariableInfo, VariableLocation, OptimizerSettings, DebugInfo};
 pub use traits::*;
