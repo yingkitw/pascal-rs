@@ -1,11 +1,45 @@
-//! Compilation driver for the MiniPAS Pascal compiler
+//! Compilation driver for the MiniPAS Pascal compiler.
 //!
-//! This crate provides the main compilation pipeline that orchestrates:
-//! - File discovery and loading
-//! - Dependency resolution
-//! - Parsing and AST generation
-//! - Module management
-//! - Error reporting
+//! This crate provides the main compilation pipeline that orchestrates the entire
+//! compilation process from source files to compiled modules.
+//!
+//! # Features
+//!
+//! - **Automatic Dependency Resolution**: Compiles dependencies before dependent units
+//! - **PPU Caching**: Uses precompiled units when available and up-to-date
+//! - **Module Management**: Tracks and manages compilation order
+//! - **Error Handling**: Comprehensive error reporting with context
+//! - **Flexible Configuration**: Customizable compilation options
+//!
+//! # Example
+//!
+//! ```no_run
+//! use minipas_driver::{Compiler, CompileOptions};
+//! use std::path::PathBuf;
+//!
+//! // Create compilation options
+//! let options = CompileOptions {
+//!     search_paths: vec![PathBuf::from(".")],
+//!     output_dir: PathBuf::from("./build"),
+//!     generate_ppu: true,
+//!     use_ppu: true,
+//!     optimization_level: 2,
+//!     debug_info: true,
+//!     target: "native".to_string(),
+//! };
+//!
+//! // Create compiler and compile a file
+//! let mut compiler = Compiler::new(options);
+//! match compiler.compile_file("MyUnit.pas") {
+//!     Ok(result) => {
+//!         println!("Compiled: {}", result.module.name);
+//!         if let Some(ppu) = result.ppu_path {
+//!             println!("PPU: {:?}", ppu);
+//!         }
+//!     }
+//!     Err(e) => eprintln!("Error: {}", e),
+//! }
+//! ```
 
 use std::path::{Path, PathBuf};
 use std::collections::{HashMap, HashSet};

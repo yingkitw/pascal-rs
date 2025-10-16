@@ -1,10 +1,38 @@
-//! Module system for minipas Pascal compiler
-//! 
-//! This crate implements the Pascal unit system, including:
-//! - Unit interface/implementation sections
-//! - Uses clause dependency management
-//! - Module compilation and linking
-//! - Symbol resolution across units
+//! Module system for the MiniPAS Pascal compiler.
+//!
+//! This crate implements Pascal's unit system with full support for modular programming,
+//! dependency management, and precompiled units (PPU files).
+//!
+//! # Features
+//!
+//! - **Unit System**: Full support for Pascal units with interface/implementation sections
+//! - **Dependency Tracking**: Automatic dependency resolution and topological sorting
+//! - **PPU Files**: Binary precompiled unit format for fast compilation
+//! - **Module Loading**: Efficient loading and caching of units
+//! - **Symbol Resolution**: Cross-module symbol resolution
+//!
+//! # Example
+//!
+//! ```no_run
+//! use minipas_module::{ModuleManager, ModuleLoader, Module};
+//! use minipas_ast::Unit;
+//! use std::path::PathBuf;
+//!
+//! // Create a module manager
+//! let mut manager = ModuleManager::new();
+//!
+//! // Create a module loader
+//! let mut loader = ModuleLoader::new();
+//! loader.add_search_path(PathBuf::from("/usr/lib/pascal"));
+//!
+//! // Load a unit from source
+//! let (path, source) = loader.load_unit_source("MyUnit").unwrap();
+//!
+//! // Or load from PPU if available
+//! if loader.is_ppu_up_to_date("MyUnit") {
+//!     let unit = loader.load_from_ppu("MyUnit").unwrap();
+//! }
+//! ```
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
