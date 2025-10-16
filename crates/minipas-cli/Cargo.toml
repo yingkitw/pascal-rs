@@ -14,9 +14,8 @@ name = "minipas"
 path = "src/main.rs"
 
 [dependencies]
-minipas-lexer = { path = "../minipas-lexer" }
+minipas-driver = { path = "../minipas-driver" }
 minipas-ast = { path = "../minipas-ast" }
-minipas-parser = { path = "../minipas-parser" }
-minipas-codegen = { path = "../minipas-codegen" }
-clap = { workspace = true }
-anyhow = { workspace = true }
+clap = { version = "4.5", features = ["derive"] }
+anyhow = "1.0"
+colored = "2.1"

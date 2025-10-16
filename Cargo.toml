@@ -7,7 +7,7 @@ members = [
     "crates/minipas-codegen",
     "crates/minipas-module",
     "crates/minipas-cli"
-]
+, "crates/minipas-driver"]
 
 [workspace.package]
 version = "0.1.0"

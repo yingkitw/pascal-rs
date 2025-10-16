@@ -1,0 +1,21 @@
+[package]
+name = "minipas-driver"
+version = "0.1.0"
+edition = "2024"
+description = "Compilation driver for the MiniPAS Pascal compiler"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+minipas-ast = { path = "../minipas-ast" }
+minipas-lexer = { path = "../minipas-lexer" }
+minipas-parser = { path = "../minipas-parser" }
+minipas-module = { path = "../minipas-module" }
+anyhow = "1.0"
+thiserror = "2.0"
+
+[dev-dependencies]
+insta = "1.41"

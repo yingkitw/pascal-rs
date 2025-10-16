@@ -1,6 +1,6 @@
-# MiniPAS - A Minimal Pascal Compiler
+# MiniPAS - A Modern Pascal Compiler
 
-MiniPAS is a minimal Pascal compiler written in Rust. It compiles a subset of the Pascal programming language to x86-64 assembly code.
+MiniPAS is a modern Pascal compiler written in Rust with support for units, modules, and precompiled unit (PPU) files. It features a complete compilation pipeline with automatic dependency resolution and a user-friendly command-line interface.
 
 ## 🚀 Features
 
@@ -90,18 +90,51 @@ The binary will be available at:
 
 ## 🎯 Usage
 
+### Installation
+
+```bash
+# Build and install the compiler
+cargo build --release
+cargo install --path crates/minipas-cli
+```
+
 ### Basic Compilation
 
 ```bash
-# Compile a Pascal program to assembly
-minipas -i examples/hello.pas -o output.s
+# Compile a Pascal unit or program
+minipas compile MyUnit.pas
 
-# Assemble and link the output
-as output.s -o output.o
-gcc -no-pie -o program output.o
+# Compile with optimization
+minipas compile MyUnit.pas -O2
 
-# Run the program
-./program
+# Compile with debug information
+minipas compile MyUnit.pas -d
+
+# Specify output directory
+minipas compile MyUnit.pas -o ./build
+
+# Add search paths for units
+minipas compile MyProgram.pas -I /usr/lib/pascal -I ./lib
+
+# Verbose output
+minipas compile MyUnit.pas -v
+```
+
+### PPU File Inspection
+
+```bash
+# Show information about a compiled unit
+minipas info myunit.ppu
+```
+
+### Clean Build Artifacts
+
+```bash
+# Remove PPU files from current directory
+minipas clean
+
+# Clean specific directory
+minipas clean ./build
 ```
 
 ### Command Line Options
@@ -109,15 +142,16 @@ gcc -no-pie -o program output.o
 ```bash
 # Show help
 minipas --help
+minipas compile --help
 
-# Verbose output
-minipas -i input.pas -o output.s --verbose
-
-# Show tokens (lexical analysis)
-minipas -i input.pas --tokenize
-
-# Show parse tree (syntax analysis)
-minipas -i input.pas --parse
+# Compile with all options
+minipas compile MyUnit.pas \
+  -o ./build \
+  -I ./lib \
+  -O2 \
+  -d \
+  --no-cache \
+  -v
 ```
 
 ### Project Structure
@@ -129,17 +163,97 @@ minipas/
 │   ├── minipas-ast/       # Abstract Syntax Tree definitions
 │   ├── minipas-parser/    # Syntax analysis crate
 │   ├── minipas-codegen/   # Code generation crate
-│   ├── minipas-module/    # Module system (units, dependencies)
-│   └── minipas-cli/       # Command-line interface
+│   ├── minipas-module/    # Module system (units, PPU files)
+│   ├── minipas-driver/    # Compilation driver
+│   └── minipas-cli/       # Command-line interface (binary)
 ├── examples/
 │   └── *.pas             # Example Pascal programs
 ├── tests/                # Test suites
 └── docs/                 # Documentation
 ```
 
+## 🎨 Key Features
+
+### Unit System & Modules
+- **Pascal Units**: Full support for `unit`, `interface`, and `implementation` sections
+- **Uses Clauses**: Automatic dependency resolution
+- **PPU Files**: Binary precompiled unit format for faster compilation
+- **Module Management**: Dependency tracking and topological sort
+- **Smart Caching**: Reuse PPU files when source hasn't changed
+
+### Compilation Pipeline
+- **Automatic Dependencies**: Compiles dependencies before dependent units
+- **Incremental Compilation**: Only recompile changed units
+- **Error Reporting**: Clear, colored error messages
+- **Progress Tracking**: Verbose mode shows compilation steps
+
+### Command-Line Interface
+- **Modern CLI**: Subcommands with comprehensive options
+- **Colored Output**: Green for success, red for errors, yellow for warnings
+- **Multiple Commands**: compile, info, clean
+- **Flexible Options**: Search paths, optimization levels, debug info
+
 ## 📝 Examples
 
-### Basic Example (`examples/hello.pas`):
+### Pascal Unit Example
+
+```pascal
+unit MathUtils;
+
+interface
+
+uses System;
+
+function Add(a, b: Integer): Integer;
+function Multiply(a, b: Integer): Integer;
+
+implementation
+
+function Add(a, b: Integer): Integer;
+begin
+  Result := a + b;
+end;
+
+function Multiply(a, b: Integer): Integer;
+begin
+  Result := a * b;
+end;
+
+end.
+```
+
+Compile the unit:
+```bash
+minipas compile MathUtils.pas -v
+# Output: Success: Compiled module: MathUtils
+#         PPU file: mathutils.ppu
+```
+
+### Program Using Units
+
+```pascal
+program Calculator;
+
+uses MathUtils;
+
+var
+  x, y, sum, product: Integer;
+begin
+  x := 10;
+  y := 5;
+  
+  sum := Add(x, y);
+  product := Multiply(x, y);
+end.
+```
+
+Compile the program:
+```bash
+minipas compile Calculator.pas -v
+# Automatically compiles MathUtils if needed
+```
+
+### Basic Program Example
 
 ```pascal
 program Hello;
