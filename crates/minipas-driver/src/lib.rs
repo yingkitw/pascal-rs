@@ -26,6 +26,7 @@
 //!     optimization_level: 2,
 //!     debug_info: true,
 //!     target: "native".to_string(),
+//!     generate_asm: false,
 //! };
 //!
 //! // Create compiler and compile a file
@@ -78,6 +79,9 @@ pub struct CompileOptions {
     
     /// Target architecture
     pub target: String,
+    
+    /// Whether to generate assembly code
+    pub generate_asm: bool,
 }
 
 impl Default for CompileOptions {
@@ -90,6 +94,7 @@ impl Default for CompileOptions {
             optimization_level: 0,
             debug_info: true,
             target: "native".to_string(),
+            generate_asm: false,
         }
     }
 }
@@ -102,6 +107,12 @@ pub struct CompileResult {
     
     /// Path to generated PPU file (if any)
     pub ppu_path: Option<PathBuf>,
+    
+    /// Generated assembly code (if any)
+    pub assembly: Option<String>,
+    
+    /// Path to generated assembly file (if any)
+    pub asm_path: Option<PathBuf>,
     
     /// Compilation warnings
     pub warnings: Vec<String>,

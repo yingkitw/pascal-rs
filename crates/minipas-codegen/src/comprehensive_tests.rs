@@ -28,7 +28,7 @@ mod comprehensive_tests {
                 functions: vec![],
                 statements: vec![Stmt::Assignment {
                     target: Expr::Variable("x".to_string()),
-                    value: Box::new(Expr::Literal(Literal::Integer(10))),
+                    value: *Box::new(Expr::Literal(Literal::Integer(10))),
                 }],
             },
         };
@@ -84,15 +84,15 @@ mod comprehensive_tests {
                 statements: vec![
                     Stmt::Assignment {
                         target: Expr::Variable("a".to_string()),
-                        value: Box::new(Expr::Literal(Literal::Integer(5))),
+                        value: *Box::new(Expr::Literal(Literal::Integer(5))),
                     },
                     Stmt::Assignment {
                         target: Expr::Variable("b".to_string()),
-                        value: Box::new(Expr::Literal(Literal::Integer(3))),
+                        value: *Box::new(Expr::Literal(Literal::Integer(3))),
                     },
                     Stmt::Assignment {
                         target: Expr::Variable("result".to_string()),
-                        value: Box::new(Expr::BinaryOp {
+                        value: *Box::new(Expr::BinaryOp {
                             op: BinaryOp::Add,
                             left: Box::new(Expr::Variable("a".to_string())),
                             right: Box::new(Expr::Variable("b".to_string())),
@@ -145,7 +145,7 @@ mod comprehensive_tests {
                 statements: vec![
                     Stmt::Assignment {
                         target: Expr::Variable("x".to_string()),
-                        value: Box::new(Expr::Literal(Literal::Integer(10))),
+                        value: *Box::new(Expr::Literal(Literal::Integer(10))),
                     },
                     Stmt::If {
                         condition: Box::new(Expr::BinaryOp {
@@ -155,11 +155,11 @@ mod comprehensive_tests {
                         }),
                         then_branch: vec![Stmt::Assignment {
                             target: Expr::Variable("y".to_string()),
-                            value: Box::new(Expr::Literal(Literal::Integer(1))),
+                            value: *Box::new(Expr::Literal(Literal::Integer(1))),
                         }],
                         else_branch: Some(vec![Stmt::Assignment {
                             target: Expr::Variable("y".to_string()),
-                            value: Box::new(Expr::Literal(Literal::Integer(0))),
+                            value: *Box::new(Expr::Literal(Literal::Integer(0))),
                         }]),
                     },
                 ],
@@ -209,7 +209,7 @@ mod comprehensive_tests {
                 statements: vec![
                     Stmt::Assignment {
                         target: Expr::Variable("sum".to_string()),
-                        value: Box::new(Expr::Literal(Literal::Integer(0))),
+                        value: *Box::new(Expr::Literal(Literal::Integer(0))),
                     },
                     Stmt::For {
                         var_name: "i".to_string(),
@@ -218,7 +218,7 @@ mod comprehensive_tests {
                         end: Box::new(Expr::Literal(Literal::Integer(10))),
                         body: vec![Stmt::Assignment {
                             target: Expr::Variable("sum".to_string()),
-                            value: Box::new(Expr::BinaryOp {
+                            value: *Box::new(Expr::BinaryOp {
                                 op: BinaryOp::Add,
                                 left: Box::new(Expr::Variable("sum".to_string())),
                                 right: Box::new(Expr::Variable("i".to_string())),
@@ -308,11 +308,11 @@ mod comprehensive_tests {
                 statements: vec![
                     Stmt::Assignment {
                         target: Expr::Variable("x".to_string()),
-                        value: Box::new(Expr::Literal(Literal::Integer(5))),
+                        value: *Box::new(Expr::Literal(Literal::Integer(5))),
                     },
                     Stmt::Assignment {
                         target: Expr::Variable("y".to_string()),
-                        value: Box::new(Expr::BinaryOp {
+                        value: *Box::new(Expr::BinaryOp {
                             op: BinaryOp::Multiply,
                             left: Box::new(Expr::Variable("x".to_string())),
                             right: Box::new(Expr::Literal(Literal::Integer(2))),
@@ -379,15 +379,15 @@ mod comprehensive_tests {
                 statements: vec![
                     Stmt::Assignment {
                         target: Expr::Variable("a".to_string()),
-                        value: Box::new(Expr::Literal(Literal::Integer(1))),
+                        value: *Box::new(Expr::Literal(Literal::Integer(1))),
                     },
                     Stmt::Assignment {
                         target: Expr::Variable("b".to_string()),
-                        value: Box::new(Expr::Literal(Literal::Integer(2))),
+                        value: *Box::new(Expr::Literal(Literal::Integer(2))),
                     },
                     Stmt::Assignment {
                         target: Expr::Variable("c".to_string()),
-                        value: Box::new(Expr::BinaryOp {
+                        value: *Box::new(Expr::BinaryOp {
                             op: BinaryOp::Add,
                             left: Box::new(Expr::Variable("a".to_string())),
                             right: Box::new(Expr::Variable("b".to_string())),
@@ -395,7 +395,7 @@ mod comprehensive_tests {
                     },
                     Stmt::Assignment {
                         target: Expr::Variable("d".to_string()),
-                        value: Box::new(Expr::BinaryOp {
+                        value: *Box::new(Expr::BinaryOp {
                             op: BinaryOp::Multiply,
                             left: Box::new(Expr::Variable("c".to_string())),
                             right: Box::new(Expr::Literal(Literal::Integer(3))),
@@ -432,7 +432,7 @@ mod comprehensive_tests {
                 functions: vec![],
                 statements: vec![Stmt::Assignment {
                     target: Expr::Variable("undefined_var".to_string()),
-                    value: Box::new(Expr::Literal(Literal::Integer(42))),
+                    value: *Box::new(Expr::Literal(Literal::Integer(42))),
                 }],
             },
         };
@@ -472,7 +472,7 @@ mod comprehensive_tests {
                 functions: vec![],
                 statements: vec![Stmt::Assignment {
                     target: Expr::Variable("x".to_string()),
-                    value: Box::new(Expr::Literal(Literal::Real(3.14))),
+                    value: *Box::new(Expr::Literal(Literal::Real(3.14))),
                 }],
             },
         };
@@ -518,7 +518,7 @@ mod comprehensive_tests {
                 statements: (0..1000)
                     .map(|i| Stmt::Assignment {
                         target: Expr::Variable("x".to_string()),
-                        value: Box::new(Expr::Literal(Literal::Integer(i))),
+                        value: *Box::new(Expr::Literal(Literal::Integer(i))),
                     })
                     .collect(),
             },
@@ -555,7 +555,7 @@ mod comprehensive_tests {
                 statements: (0..1000)
                     .map(|i| Stmt::Assignment {
                         target: Expr::Variable("x".to_string()),
-                        value: Box::new(Expr::Literal(Literal::Integer(i))),
+                        value: *Box::new(Expr::Literal(Literal::Integer(i))),
                     })
                     .collect(),
             },
@@ -645,7 +645,7 @@ mod comprehensive_tests {
                 functions: vec![],
                 statements: vec![Stmt::Assignment {
                     target: Expr::Variable("result".to_string()),
-                    value: Box::new(Expr::BinaryOp {
+                    value: *Box::new(Expr::BinaryOp {
                         op: BinaryOp::Add,
                         left: Box::new(Expr::BinaryOp {
                             op: BinaryOp::Multiply,

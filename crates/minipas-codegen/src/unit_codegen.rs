@@ -159,10 +159,361 @@ impl UnitCodeGenerator {
         Ok(())
     }
     
-    /// Generate code for a statement (placeholder)
-    fn generate_statement(&mut self, _stmt: &Stmt) -> Result<()> {
-        // TODO: Implement statement generation
+    /// Generate code for a statement
+    fn generate_statement(&mut self, stmt: &Stmt) -> Result<()> {
+        match stmt {
+            Stmt::Assignment { target, value } => {
+                // For now, assume target is a simple variable
+                writeln!(&mut self.output, "    # Assignment")?;
+                self.generate_expression(value)?;
+                writeln!(&mut self.output, "    # Store result (target handling TODO)")?;
+            }
+            Stmt::If { condition, then_branch, else_branch } => {
+                self.generate_if(condition, then_branch, else_branch.as_ref())?;
+            }
+            Stmt::While { condition, body } => {
+                self.generate_while(condition, body)?;
+            }
+            Stmt::For { var_name, start, end, body, .. } => {
+                self.generate_for(var_name, start, end, body)?;
+            }
+            Stmt::Block(block) => {
+                for stmt in &block.statements {
+                    self.generate_statement(stmt)?;
+                }
+            }
+            Stmt::ProcedureCall { name, args } => {
+                self.generate_procedure_call(name, args)?;
+            }
+            Stmt::Empty => {
+                // No code for empty statement
+            }
+            _ => {
+                writeln!(&mut self.output, "    # Unsupported statement")?;
+            }
+        }
         Ok(())
+    }
+    
+    /// Generate if statement
+    fn generate_if(&mut self, condition: &Expr, then_branch: &Vec<Stmt>, else_branch: Option<&Vec<Stmt>>) -> Result<()> {
+        let label_else = self.new_label("else");
+        let label_end = self.new_label("endif");
+        
+        writeln!(&mut self.output, "    # If statement")?;
+        
+        // Evaluate condition
+        self.generate_expression(condition)?;
+        writeln!(&mut self.output, "    test rax, rax")?;
+        
+        if else_branch.is_some() {
+            writeln!(&mut self.output, "    jz {}", label_else)?;
+        } else {
+            writeln!(&mut self.output, "    jz {}", label_end)?;
+        }
+        
+        // Then branch
+        for stmt in then_branch {
+            self.generate_statement(stmt)?;
+        }
+        
+        if let Some(else_stmts) = else_branch {
+            writeln!(&mut self.output, "    jmp {}", label_end)?;
+            writeln!(&mut self.output, "{}:", label_else)?;
+            
+            // Else branch
+            for stmt in else_stmts {
+                self.generate_statement(stmt)?;
+            }
+        }
+        
+        writeln!(&mut self.output, "{}:", label_end)?;
+        Ok(())
+    }
+    
+    /// Generate while loop
+    fn generate_while(&mut self, condition: &Expr, body: &Vec<Stmt>) -> Result<()> {
+        let label_start = self.new_label("while_start");
+        let label_end = self.new_label("while_end");
+        
+        writeln!(&mut self.output, "    # While loop")?;
+        writeln!(&mut self.output, "{}:", label_start)?;
+        
+        // Evaluate condition
+        self.generate_expression(condition)?;
+        writeln!(&mut self.output, "    test rax, rax")?;
+        writeln!(&mut self.output, "    jz {}", label_end)?;
+        
+        // Loop body
+        for stmt in body {
+            self.generate_statement(stmt)?;
+        }
+        
+        writeln!(&mut self.output, "    jmp {}", label_start)?;
+        writeln!(&mut self.output, "{}:", label_end)?;
+        
+        Ok(())
+    }
+    
+    /// Generate for loop
+    fn generate_for(&mut self, variable: &str, start: &Expr, end: &Expr, body: &Vec<Stmt>) -> Result<()> {
+        let label_start = self.new_label("for_start");
+        let label_end = self.new_label("for_end");
+        
+        writeln!(&mut self.output, "    # For loop")?;
+        
+        // Initialize loop variable
+        self.generate_expression(start)?;
+        let offset = self.get_variable_offset(variable);
+        writeln!(&mut self.output, "    mov [rbp - {}], rax  # Initialize {}", 
+                 offset, variable)?;
+        
+        writeln!(&mut self.output, "{}:", label_start)?;
+        
+        // Check condition: variable <= end
+        let offset2 = self.get_variable_offset(variable);
+        writeln!(&mut self.output, "    mov rax, [rbp - {}]  # Load {}", 
+                 offset2, variable)?;
+        writeln!(&mut self.output, "    push rax")?;
+        
+        self.generate_expression(end)?;
+        writeln!(&mut self.output, "    pop rdx")?;
+        writeln!(&mut self.output, "    cmp rdx, rax")?;
+        writeln!(&mut self.output, "    jg {}", label_end)?;
+        
+        // Loop body
+        for stmt in body {
+            self.generate_statement(stmt)?;
+        }
+        
+        // Increment loop variable
+        let offset3 = self.get_variable_offset(variable);
+        writeln!(&mut self.output, "    mov rax, [rbp - {}]", offset3)?;
+        writeln!(&mut self.output, "    inc rax")?;
+        writeln!(&mut self.output, "    mov [rbp - {}], rax", offset3)?;
+        
+        writeln!(&mut self.output, "    jmp {}", label_start)?;
+        writeln!(&mut self.output, "{}:", label_end)?;
+        
+        Ok(())
+    }
+    
+    /// Generate procedure call
+    fn generate_procedure_call(&mut self, name: &str, args: &[Expr]) -> Result<()> {
+        writeln!(&mut self.output, "    # Call procedure: {}", name)?;
+        
+        // Push arguments in reverse order (right to left)
+        for arg in args.iter().rev() {
+            self.generate_expression(arg)?;
+            writeln!(&mut self.output, "    push rax")?;
+        }
+        
+        // Call the procedure
+        writeln!(&mut self.output, "    call {}", name)?;
+        
+        // Clean up stack (caller cleanup)
+        if !args.is_empty() {
+            writeln!(&mut self.output, "    add rsp, {}", args.len() * 8)?;
+        }
+        
+        Ok(())
+    }
+    
+    /// Generate expression code
+    fn generate_expression(&mut self, expr: &Expr) -> Result<()> {
+        match expr {
+            Expr::Literal(lit) => {
+                self.generate_literal(lit)?;
+            }
+            Expr::Identifier(parts) => {
+                // For now, just handle simple identifiers
+                if let Some(name) = parts.first() {
+                    let offset = self.get_variable_offset(name);
+                    writeln!(&mut self.output, "    mov rax, [rbp - {}]  # Load {}", 
+                             offset, name)?;
+                } else {
+                    writeln!(&mut self.output, "    xor rax, rax  # Empty identifier")?;
+                }
+            }
+            Expr::BinaryOp { op, left, right } => {
+                self.generate_binary_op(op, left, right)?;
+            }
+            Expr::UnaryOp { op, expr } => {
+                self.generate_unary_op(op, expr)?;
+            }
+            Expr::FunctionCall { name, args } => {
+                self.generate_function_call(name, args)?;
+            }
+            _ => {
+                writeln!(&mut self.output, "    # Unsupported expression")?;
+                writeln!(&mut self.output, "    xor rax, rax")?;
+            }
+        }
+        Ok(())
+    }
+    
+    /// Generate literal value
+    fn generate_literal(&mut self, lit: &Literal) -> Result<()> {
+        match lit {
+            Literal::Integer(val) => {
+                writeln!(&mut self.output, "    mov rax, {}", val)?;
+            }
+            Literal::Real(val) => {
+                writeln!(&mut self.output, "    # Real literal: {}", val)?;
+                writeln!(&mut self.output, "    xor rax, rax  # TODO: Float support")?;
+            }
+            Literal::String(val) => {
+                writeln!(&mut self.output, "    # String literal: \"{}\"", val)?;
+                writeln!(&mut self.output, "    xor rax, rax  # TODO: String support")?;
+            }
+            Literal::Boolean(val) => {
+                writeln!(&mut self.output, "    mov rax, {}", if *val { 1 } else { 0 })?;
+            }
+            Literal::Char(val) => {
+                writeln!(&mut self.output, "    mov rax, {}", *val as i32)?;
+            }
+            Literal::Nil => {
+                writeln!(&mut self.output, "    xor rax, rax  # nil")?;
+            }
+            _ => {
+                writeln!(&mut self.output, "    # Unsupported literal type")?;
+                writeln!(&mut self.output, "    xor rax, rax")?;
+            }
+        }
+        Ok(())
+    }
+    
+    /// Generate binary operation
+    fn generate_binary_op(&mut self, op: &BinaryOp, left: &Box<Expr>, right: &Box<Expr>) -> Result<()> {
+        // Evaluate left operand
+        self.generate_expression(left)?;
+        writeln!(&mut self.output, "    push rax")?;
+        
+        // Evaluate right operand
+        self.generate_expression(right)?;
+        
+        // Pop left operand into rdx
+        writeln!(&mut self.output, "    pop rdx")?;
+        
+        // Perform operation
+        match op {
+            BinaryOp::Add => {
+                writeln!(&mut self.output, "    add rax, rdx")?;
+            }
+            BinaryOp::Subtract => {
+                writeln!(&mut self.output, "    sub rdx, rax")?;
+                writeln!(&mut self.output, "    mov rax, rdx")?;
+            }
+            BinaryOp::Multiply => {
+                writeln!(&mut self.output, "    imul rax, rdx")?;
+            }
+            BinaryOp::Divide => {
+                writeln!(&mut self.output, "    mov rax, rdx")?;
+                writeln!(&mut self.output, "    cqo")?;
+                writeln!(&mut self.output, "    idiv rdx")?;
+            }
+            BinaryOp::Equal => {
+                writeln!(&mut self.output, "    cmp rdx, rax")?;
+                writeln!(&mut self.output, "    sete al")?;
+                writeln!(&mut self.output, "    movzx rax, al")?;
+            }
+            BinaryOp::NotEqual => {
+                writeln!(&mut self.output, "    cmp rdx, rax")?;
+                writeln!(&mut self.output, "    setne al")?;
+                writeln!(&mut self.output, "    movzx rax, al")?;
+            }
+            BinaryOp::Less => {
+                writeln!(&mut self.output, "    cmp rdx, rax")?;
+                writeln!(&mut self.output, "    setl al")?;
+                writeln!(&mut self.output, "    movzx rax, al")?;
+            }
+            BinaryOp::LessOrEqual => {
+                writeln!(&mut self.output, "    cmp rdx, rax")?;
+                writeln!(&mut self.output, "    setle al")?;
+                writeln!(&mut self.output, "    movzx rax, al")?;
+            }
+            BinaryOp::Greater => {
+                writeln!(&mut self.output, "    cmp rdx, rax")?;
+                writeln!(&mut self.output, "    setg al")?;
+                writeln!(&mut self.output, "    movzx rax, al")?;
+            }
+            BinaryOp::GreaterOrEqual => {
+                writeln!(&mut self.output, "    cmp rdx, rax")?;
+                writeln!(&mut self.output, "    setge al")?;
+                writeln!(&mut self.output, "    movzx rax, al")?;
+            }
+            BinaryOp::And => {
+                writeln!(&mut self.output, "    and rax, rdx")?;
+            }
+            BinaryOp::Or => {
+                writeln!(&mut self.output, "    or rax, rdx")?;
+            }
+            _ => {
+                writeln!(&mut self.output, "    # Unsupported binary op")?;
+                writeln!(&mut self.output, "    xor rax, rax")?;
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Generate unary operation
+    fn generate_unary_op(&mut self, op: &UnaryOp, expr: &Box<Expr>) -> Result<()> {
+        self.generate_expression(expr)?;
+        
+        match op {
+            UnaryOp::Minus | UnaryOp::Negate => {
+                writeln!(&mut self.output, "    neg rax")?;
+            }
+            UnaryOp::Not => {
+                writeln!(&mut self.output, "    test rax, rax")?;
+                writeln!(&mut self.output, "    setz al")?;
+                writeln!(&mut self.output, "    movzx rax, al")?;
+            }
+            UnaryOp::Plus => {
+                // No operation needed
+            }
+            _ => {
+                writeln!(&mut self.output, "    # Unsupported unary op")?;
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Generate function call
+    fn generate_function_call(&mut self, name: &str, args: &[Expr]) -> Result<()> {
+        writeln!(&mut self.output, "    # Call function: {}", name)?;
+        
+        // Push arguments in reverse order
+        for arg in args.iter().rev() {
+            self.generate_expression(arg)?;
+            writeln!(&mut self.output, "    push rax")?;
+        }
+        
+        // Call the function
+        writeln!(&mut self.output, "    call {}", name)?;
+        
+        // Clean up stack
+        if !args.is_empty() {
+            writeln!(&mut self.output, "    add rsp, {}", args.len() * 8)?;
+        }
+        
+        // Result is in rax
+        Ok(())
+    }
+    
+    /// Get variable offset (simplified - uses fixed offsets)
+    fn get_variable_offset(&self, name: &str) -> i32 {
+        // Simple hash-based offset for now
+        let hash = name.bytes().fold(0u32, |acc, b| acc.wrapping_add(b as u32));
+        8 + ((hash % 100) * 8) as i32
+    }
+    
+    /// Generate a new unique label
+    fn new_label(&mut self, prefix: &str) -> String {
+        self.label_counter += 1;
+        format!(".L{}_{}", prefix, self.label_counter)
     }
     
     /// Generate initialization section

@@ -53,7 +53,10 @@ impl Compiler {
         
         // Read source file
         let source = fs::read_to_string(path)
-            .map_err(|e| CompilerError::IoError(e))?;
+            .map_err(|e| CompilerError::IoError {
+                path: path.to_path_buf(),
+                error: e,
+            })?;
         
         // Parse the file
         let mut parser = Parser::new(&source);
@@ -102,9 +105,34 @@ impl Compiler {
             None
         };
         
+        // Generate assembly code if requested
+        let (assembly, asm_path) = if self.options.generate_asm {
+            let mut codegen = UnitCodeGenerator::new();
+            let asm_code = codegen.generate_unit(&unit)
+                .map_err(|e| CompilerError::CodeGenError {
+                    file: path.to_path_buf(),
+                    message: format!("{}", e),
+                })?;
+            
+            // Save assembly to file
+            let asm_filename = format!("{}.s", unit.name.to_lowercase());
+            let asm_path = self.options.output_dir.join(&asm_filename);
+            fs::write(&asm_path, &asm_code)
+                .map_err(|e| CompilerError::IoError {
+                    path: asm_path.clone(),
+                    error: e,
+                })?;
+            
+            (Some(asm_code), Some(asm_path))
+        } else {
+            (None, None)
+        };
+        
         Ok(CompileResult {
             module,
             ppu_path,
+            assembly,
+            asm_path,
             warnings,
         })
     }
@@ -156,16 +184,41 @@ impl Compiler {
             },
         };
         
-        // Create module
-        let module = Module::new(program_name.clone(), path.to_path_buf(), unit);
+        // Create module (clone unit for later use in codegen)
+        let module = Module::new(program_name.clone(), path.to_path_buf(), unit.clone());
         
         // Add to manager
         self.manager.register_module(module.clone())?;
         self.compiled.insert(program_name.clone(), module.clone());
         
+        // Generate assembly code if requested (for programs)
+        let (assembly, asm_path) = if self.options.generate_asm {
+            let mut codegen = UnitCodeGenerator::new();
+            let asm_code = codegen.generate_unit(&unit)
+                .map_err(|e| CompilerError::CodeGenError {
+                    file: path.to_path_buf(),
+                    message: format!("{}", e),
+                })?;
+            
+            // Save assembly to file
+            let asm_filename = format!("{}.s", program_name.to_lowercase());
+            let asm_path = self.options.output_dir.join(&asm_filename);
+            fs::write(&asm_path, &asm_code)
+                .map_err(|e| CompilerError::IoError {
+                    path: asm_path.clone(),
+                    error: e,
+                })?;
+            
+            (Some(asm_code), Some(asm_path))
+        } else {
+            (None, None)
+        };
+        
         Ok(CompileResult {
             module,
             ppu_path: None,
+            assembly,
+            asm_path,
             warnings,
         })
     }

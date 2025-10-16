@@ -184,8 +184,13 @@ mod tests {
         let mut codegen = MockCodeGenerator::new();
         let program = Program {
             name: "test".to_string(),
+            uses: vec![],
             block: Block {
-                declarations: vec![],
+                consts: vec![],
+                types: vec![],
+                vars: vec![],
+                procedures: vec![],
+                functions: vec![],
                 statements: vec![],
             },
         };

@@ -45,6 +45,10 @@ enum Commands {
         #[arg(long)]
         no_cache: bool,
         
+        /// Generate assembly code
+        #[arg(short = 'S', long)]
+        asm: bool,
+        
         /// Verbose output
         #[arg(short, long)]
         verbose: bool,
@@ -76,6 +80,7 @@ fn main() -> Result<()> {
             debug,
             no_ppu,
             no_cache,
+            asm,
             verbose,
         } => compile_file(
             input,
@@ -85,6 +90,7 @@ fn main() -> Result<()> {
             debug,
             !no_ppu,
             !no_cache,
+            asm,
             verbose,
         ),
         Commands::Info { ppu_file } => show_ppu_info(ppu_file),
@@ -100,6 +106,7 @@ fn compile_file(
     debug: bool,
     generate_ppu: bool,
     use_ppu: bool,
+    generate_asm: bool,
     verbose: bool,
 ) -> Result<()> {
     // Validate input file
@@ -121,6 +128,7 @@ fn compile_file(
         optimization_level: optimization,
         debug_info: debug,
         target: "native".to_string(),
+        generate_asm,
     };
     
     // Add custom search paths
@@ -135,6 +143,7 @@ fn compile_file(
         println!("  Debug info: {}", debug);
         println!("  Generate PPU: {}", generate_ppu);
         println!("  Use PPU cache: {}", use_ppu);
+        println!("  Generate assembly: {}", generate_asm);
         println!("  Search paths: {}", options.search_paths.len());
     }
     
@@ -154,6 +163,10 @@ fn compile_file(
                 if verbose {
                     println!("  PPU file: {}", ppu_path.display());
                 }
+            }
+            
+            if let Some(asm_path) = result.asm_path {
+                println!("  Assembly file: {}", asm_path.display().to_string().green());
             }
             
             // Show warnings

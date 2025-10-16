@@ -24,8 +24,17 @@ pub enum CompilerError {
     #[error("Unit not found: {0}")]
     UnitNotFound(String),
     
-    #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
+    #[error("IO error at {path}: {error}")]
+    IoError {
+        path: PathBuf,
+        error: std::io::Error,
+    },
+    
+    #[error("Code generation error in {file}: {message}")]
+    CodeGenError {
+        file: PathBuf,
+        message: String,
+    },
     
     #[error("Multiple errors occurred")]
     MultipleErrors(Vec<CompilerError>),
