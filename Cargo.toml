@@ -1,31 +1,33 @@
-[package]
-name = "minipas"
+[workspace]
+resolver = "3"
+members = [
+    "crates/minipas-lexer",
+    "crates/minipas-ast", 
+    "crates/minipas-parser",
+    "crates/minipas-codegen",
+    "crates/minipas-cli"
+]
+
+[workspace.package]
 version = "0.1.0"
-edition = "2021"
-description = "A minimal Pascal compiler written in Rust"
+edition = "2024"
 authors = ["Your Name <your.email@example.com>"]
 license = "MIT"
 repository = "https://github.com/yourusername/minipas"
-readme = "README.md"
 keywords = ["compiler", "pascal", "education"]
 categories = ["command-line-utilities", "compilers"]
 
-[features]
-default = ["lalrpop"]
-lalrpop = ["lalrpop-util"]
-
-[dependencies]
-clap = { version = "4.4", features = ["derive"] }
-logos = "0.13"
-lalrpop-util = { version = "0.20", optional = true }
-thiserror = "1.0"
+[workspace.dependencies]
+clap = { version = "4.5", features = ["derive"] }
+logos = "0.15"
+lalrpop-util = "0.21"
+thiserror = "2.0"
 anyhow = "1.0"
-
-[dev-dependencies]
 assert_cmd = "2.0"
-predicates = "2.0"
-tempfile = "3.2"
+predicates = "3.1"
+tempfile = "3.10"
 assert_matches = "1.5"
-
-[build-dependencies]
 version_check = "0.9"
+
+# This is now a workspace-only project
+# All functionality has been moved to individual crates

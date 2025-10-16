@@ -1,0 +1,22 @@
+[package]
+name = "minipas-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Command-line interface for the MiniPAS Pascal compiler"
+
+[[bin]]
+name = "minipas"
+path = "src/main.rs"
+
+[dependencies]
+minipas-lexer = { path = "../minipas-lexer" }
+minipas-ast = { path = "../minipas-ast" }
+minipas-parser = { path = "../minipas-parser" }
+minipas-codegen = { path = "../minipas-codegen" }
+clap = { workspace = true }
+anyhow = { workspace = true }
