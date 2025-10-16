@@ -6,10 +6,12 @@ use std::fmt::Write;
 pub mod enhanced_codegen;
 pub mod traits;
 pub mod mocks;
+pub mod unit_codegen;
 
 pub use enhanced_codegen::{EnhancedCodeGenerator, TargetArchitecture, CallingConvention, Register, Instruction, Operand, MemoryOperand, Label, FunctionInfo, ParameterInfo, ParameterLocation, TypeInfo, VariableInfo as EnhancedVariableInfo, VariableLocation, OptimizerSettings, DebugInfo};
 pub use traits::*;
 pub use mocks::*;
+pub use unit_codegen::UnitCodeGenerator;
 
 pub struct CodeGenerator {
     output: String,
@@ -1375,24 +1377,6 @@ impl VariableManager for CodeGenerator {
     
     fn exit_scope(&mut self) {
         self.exit_scope();
-    }
-}
-
-impl TargetArchitecture for CodeGenerator {
-    fn architecture_name(&self) -> &str {
-        "x86-64"
-    }
-    
-    fn register_size(&self) -> usize {
-        8 // 64-bit registers
-    }
-    
-    fn stack_alignment(&self) -> usize {
-        16 // x86-64 ABI requires 16-byte alignment
-    }
-    
-    fn calling_convention(&self) -> &str {
-        "System V AMD64 ABI"
     }
 }
 

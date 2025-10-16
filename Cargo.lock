@@ -255,6 +255,7 @@ dependencies = [
  "anyhow",
  "insta",
  "minipas-ast",
+ "minipas-codegen",
  "minipas-lexer",
  "minipas-module",
  "minipas-parser",

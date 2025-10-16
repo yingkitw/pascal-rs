@@ -6,6 +6,7 @@ use std::fs;
 use minipas_ast::{Unit, Program};
 use minipas_parser::Parser;
 use minipas_module::{ModuleLoader, ModuleManager, Module};
+use minipas_codegen::UnitCodeGenerator;
 use crate::{CompileOptions, CompileResult, CompilerError, CompilerResult};
 
 /// Main compiler struct
