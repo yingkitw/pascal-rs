@@ -15,6 +15,7 @@ minipas/
 │   ├── minipas-cli/        # Command-line interface
 │   ├── minipas-codegen/    # Code generation and optimization
 │   ├── minipas-lexer/      # Lexical analysis and tokenization
+│   ├── minipas-module/     # Module system (units, dependencies, symbol resolution)
 │   └── minipas-parser/     # Syntax analysis and parsing
 ├── docs/                    # Documentation
 │   ├── migration/          # FPC migration documentation

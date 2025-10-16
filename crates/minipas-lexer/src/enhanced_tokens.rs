@@ -308,7 +308,7 @@ pub enum EnhancedToken {
     Read,
     
     #[token("self")]
-    Self,
+    SelfKeyword,
     
     #[token("sysv")]
     Sysv,

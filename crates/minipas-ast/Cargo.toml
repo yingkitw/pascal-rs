@@ -10,3 +10,4 @@ categories.workspace = true
 description = "Abstract Syntax Tree definitions for the MiniPAS Pascal compiler"
 
 [dependencies]
+serde = { version = "1.0", features = ["derive"] }

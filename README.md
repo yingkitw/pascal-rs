@@ -129,6 +129,7 @@ minipas/
 │   ├── minipas-ast/       # Abstract Syntax Tree definitions
 │   ├── minipas-parser/    # Syntax analysis crate
 │   ├── minipas-codegen/   # Code generation crate
+│   ├── minipas-module/    # Module system (units, dependencies)
 │   └── minipas-cli/       # Command-line interface
 ├── examples/
 │   └── *.pas             # Example Pascal programs
@@ -435,6 +436,7 @@ graph LR
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - Detailed project architecture and design
 - [TODO.md](./TODO.md) - Development roadmap and current tasks
+- [MODULE_SYSTEM.md](docs/MODULE_SYSTEM.md) - Module system documentation
 - [API Documentation](docs/index.html) - Complete API reference
 - [Language Reference](docs/language.html) - Supported Pascal features
 - [Examples](examples/) - Sample Pascal programs

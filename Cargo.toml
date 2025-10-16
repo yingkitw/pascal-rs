@@ -5,6 +5,7 @@ members = [
     "crates/minipas-ast", 
     "crates/minipas-parser",
     "crates/minipas-codegen",
+    "crates/minipas-module",
     "crates/minipas-cli"
 ]
 

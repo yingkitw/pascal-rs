@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod comprehensive_tests {
-    use super::*;
+    use crate::*;
     use std::collections::HashMap;
 
     // ============================================================================
@@ -50,7 +50,7 @@ mod comprehensive_tests {
             functions: vec![],
             statements: vec![Stmt::Assignment {
                 target: Expr::Variable("x".to_string()),
-                value: Box::new(Expr::Literal(Literal::Integer(10))),
+                value: Expr::Literal(Literal::Integer(10)),
             }],
         };
 
@@ -98,42 +98,42 @@ mod comprehensive_tests {
         // Test assignment statement
         let assign_stmt = Stmt::Assignment {
             target: Expr::Variable("x".to_string()),
-            value: Box::new(Expr::Literal(Literal::Integer(42))),
+            value: Expr::Literal(Literal::Integer(42)),
         };
         assert!(matches!(assign_stmt, Stmt::Assignment { .. }));
 
         // Test if statement
         let if_stmt = Stmt::If {
-            condition: Box::new(Expr::BinaryOp {
+            condition: Expr::BinaryOp {
                 op: BinaryOp::Greater,
                 left: Box::new(Expr::Variable("x".to_string())),
                 right: Box::new(Expr::Literal(Literal::Integer(0))),
-            }),
+            },
             then_branch: vec![Stmt::Assignment {
                 target: Expr::Variable("y".to_string()),
-                value: Box::new(Expr::Literal(Literal::Integer(1))),
+                value: Expr::Literal(Literal::Integer(1)),
             }],
             else_branch: Some(vec![Stmt::Assignment {
                 target: Expr::Variable("y".to_string()),
-                value: Box::new(Expr::Literal(Literal::Integer(-1))),
+                value: Expr::Literal(Literal::Integer(-1)),
             }]),
         };
         assert!(matches!(if_stmt, Stmt::If { .. }));
 
         // Test while statement
         let while_stmt = Stmt::While {
-            condition: Box::new(Expr::BinaryOp {
+            condition: Expr::BinaryOp {
                 op: BinaryOp::Less,
                 left: Box::new(Expr::Variable("i".to_string())),
                 right: Box::new(Expr::Literal(Literal::Integer(10))),
-            }),
+            },
             body: vec![Stmt::Assignment {
                 target: Expr::Variable("i".to_string()),
-                value: Box::new(Expr::BinaryOp {
+                value: Expr::BinaryOp {
                     op: BinaryOp::Add,
                     left: Box::new(Expr::Variable("i".to_string())),
                     right: Box::new(Expr::Literal(Literal::Integer(1))),
-                }),
+                },
             }],
         };
         assert!(matches!(while_stmt, Stmt::While { .. }));
@@ -242,18 +242,18 @@ mod comprehensive_tests {
                 statements: vec![
                     Stmt::Assignment {
                         target: Expr::Variable("x".to_string()),
-                        value: Box::new(Expr::Literal(Literal::Integer(42))),
+                        value: Expr::Literal(Literal::Integer(42)),
                     },
                     Stmt::Assignment {
                         target: Expr::Variable("y".to_string()),
-                        value: Box::new(Expr::BinaryOp {
+                        value: Expr::BinaryOp {
                             op: BinaryOp::Multiply,
                             left: Box::new(Expr::Variable("x".to_string())),
                             right: Box::new(Expr::Call {
                                 name: "PI".to_string(),
                                 args: vec![],
                             }),
-                        }),
+                        },
                     },
                 ],
             },
@@ -310,35 +310,35 @@ mod comprehensive_tests {
         // Test for loop
         let for_stmt = Stmt::For {
             var_name: "i".to_string(),
-            start: Box::new(Expr::Literal(Literal::Integer(1))),
+            start: Expr::Literal(Literal::Integer(1)),
             direction: ForDirection::To,
-            end: Box::new(Expr::Literal(Literal::Integer(10))),
+            end: Expr::Literal(Literal::Integer(10)),
             body: vec![Stmt::Assignment {
                 target: Expr::Variable("sum".to_string()),
-                value: Box::new(Expr::BinaryOp {
+                value: Expr::BinaryOp {
                     op: BinaryOp::Add,
                     left: Box::new(Expr::Variable("sum".to_string())),
                     right: Box::new(Expr::Variable("i".to_string())),
-                }),
+                },
             }],
         };
         assert!(matches!(for_stmt, Stmt::For { .. }));
 
         // Test repeat-until loop
         let repeat_stmt = Stmt::RepeatUntil {
-            condition: Box::new(Expr::BinaryOp {
+            condition: Expr::BinaryOp {
                 op: BinaryOp::Equal,
                 left: Box::new(Expr::Variable("x".to_string())),
                 right: Box::new(Expr::Literal(Literal::Integer(0))),
-            }),
+            },
             body: vec![
                 Stmt::Assignment {
                     target: Expr::Variable("x".to_string()),
-                    value: Box::new(Expr::BinaryOp {
+                    value: Expr::BinaryOp {
                         op: BinaryOp::Subtract,
                         left: Box::new(Expr::Variable("x".to_string())),
                         right: Box::new(Expr::Literal(Literal::Integer(1))),
-                    }),
+                    },
                 },
             ],
         };
@@ -346,26 +346,26 @@ mod comprehensive_tests {
 
         // Test case statement
         let case_stmt = Stmt::Case {
-            expr: Box::new(Expr::Variable("choice".to_string())),
+            expr: Expr::Variable("choice".to_string()),
             arms: vec![
                 CaseArm {
                     constants: vec![Literal::Integer(1)],
                     stmts: vec![Stmt::Assignment {
                         target: Expr::Variable("result".to_string()),
-                        value: Box::new(Expr::Literal(Literal::String("One".to_string()))),
+                        value: Expr::Literal(Literal::String("One".to_string())),
                     }],
                 },
                 CaseArm {
                     constants: vec![Literal::Integer(2)],
                     stmts: vec![Stmt::Assignment {
                         target: Expr::Variable("result".to_string()),
-                        value: Box::new(Expr::Literal(Literal::String("Two".to_string()))),
+                        value: Expr::Literal(Literal::String("Two".to_string())),
                     }],
                 },
             ],
             else_arm: Some(vec![Stmt::Assignment {
                 target: Expr::Variable("result".to_string()),
-                value: Box::new(Expr::Literal(Literal::String("Other".to_string()))),
+                value: Expr::Literal(Literal::String("Other".to_string())),
             }]),
         };
         assert!(matches!(case_stmt, Stmt::Case { .. }));
@@ -442,12 +442,12 @@ mod comprehensive_tests {
                 procedures: vec![],
                 functions: vec![],
                 statements: vec![Stmt::Assignment {
-                    target: Expr::Identifier("Add".to_string()),
-                    value: Box::new(Expr::BinaryOp {
+                    target: Expr::Identifier(vec!["Add".to_string()]),
+                    value: Expr::BinaryOp {
                         op: BinaryOp::Add,
                         left: Box::new(Expr::Variable("a".to_string())),
                         right: Box::new(Expr::Variable("b".to_string())),
-                    }),
+                    },
                 }],
             },
             is_forward: false,
@@ -658,31 +658,31 @@ mod comprehensive_tests {
 
         // Test nested statements
         let nested_stmt = Stmt::If {
-            condition: Box::new(Expr::BinaryOp {
+            condition: Expr::BinaryOp {
                 op: BinaryOp::Greater,
                 left: Box::new(Expr::Variable("x".to_string())),
                 right: Box::new(Expr::Literal(Literal::Integer(0))),
-            }),
+            },
             then_branch: vec![
                 Stmt::If {
-                    condition: Box::new(Expr::BinaryOp {
+                    condition: Expr::BinaryOp {
                         op: BinaryOp::Less,
                         left: Box::new(Expr::Variable("x".to_string())),
                         right: Box::new(Expr::Literal(Literal::Integer(10))),
-                    }),
+                    },
                     then_branch: vec![Stmt::Assignment {
                         target: Expr::Variable("y".to_string()),
-                        value: Box::new(Expr::Literal(Literal::Integer(1))),
+                        value: Expr::Literal(Literal::Integer(1)),
                     }],
                     else_branch: Some(vec![Stmt::Assignment {
                         target: Expr::Variable("y".to_string()),
-                        value: Box::new(Expr::Literal(Literal::Integer(2))),
+                        value: Expr::Literal(Literal::Integer(2)),
                     }]),
                 },
             ],
             else_branch: Some(vec![Stmt::Assignment {
                 target: Expr::Variable("y".to_string()),
-                value: Box::new(Expr::Literal(Literal::Integer(0))),
+                value: Expr::Literal(Literal::Integer(0)),
             }]),
         };
 
@@ -700,7 +700,7 @@ mod comprehensive_tests {
         for i in 0..1000 {
             statements.push(Stmt::Assignment {
                 target: Expr::Variable(format!("var_{}", i)),
-                value: Box::new(Expr::Literal(Literal::Integer(i as i64))),
+                value: Expr::Literal(Literal::Integer(i as i64)),
             });
         }
 

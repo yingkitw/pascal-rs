@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Enhanced AST nodes based on Free Pascal Compiler
 /// Provides comprehensive Pascal language support
