@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-/// Enhanced code generator based on Free Pascal Compiler
-/// Provides comprehensive code generation for multiple target architectures
+/// Enhanced code generator for comprehensive Pascal language support
+/// Provides code generation for multiple target architectures
 
 #[derive(Debug, Clone)]
 pub struct EnhancedCodeGenerator {

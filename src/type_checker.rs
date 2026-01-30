@@ -46,9 +46,42 @@ impl<'a> TypeChecker<'a> {
             }
 
             Expr::FunctionCall { name, args } => {
-                // For now, assume function returns integer
-                // TODO: Look up function signature
-                Ok(Type::Integer)
+                // Look up function signature to determine return type
+                if let Some(name) = name.first() {
+                    if let Some(sig) = self.symbol_table.lookup_function(name) {
+                        // Validate argument count
+                        if args.len() != sig.parameters.len() {
+                            return Err(anyhow!(
+                                "Function '{}' expects {} arguments, got {}",
+                                name,
+                                sig.parameters.len(),
+                                args.len()
+                            ));
+                        }
+
+                        // Validate argument types
+                        for (i, arg_expr) in args.iter().enumerate() {
+                            let arg_type = self.check_expr(arg_expr)?;
+                            let expected_type = &sig.parameters[i].1;
+
+                            if !self.types_compatible(&arg_type, expected_type) {
+                                return Err(anyhow!(
+                                    "Type mismatch in argument {} of function '{}': expected {:?}, got {:?}",
+                                    i + 1,
+                                    name,
+                                    expected_type,
+                                    arg_type
+                                ));
+                            }
+                        }
+
+                        Ok(sig.return_type.clone())
+                    } else {
+                        Err(anyhow!("Undefined function: {}", name))
+                    }
+                } else {
+                    Err(anyhow!("Empty function name"))
+                }
             }
 
             _ => Ok(Type::Integer), // Default for unsupported expressions

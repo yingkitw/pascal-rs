@@ -246,9 +246,9 @@ Coverage:
 
 ## 📝 Notes
 
-- All units follow Free Pascal Compiler (FPC) conventions
+- All units follow standard Pascal conventions
 - Compatible with Delphi and Turbo Pascal where applicable
-- Optimized for the poscal-rs compiler
+- Optimized for the pascal-rs compiler
 - Full source code included for transparency
 
 ## 🔗 Related Documentation

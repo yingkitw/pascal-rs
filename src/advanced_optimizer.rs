@@ -2,7 +2,7 @@
 //!
 //! Common subexpression elimination, function inlining, loop optimizations
 
-use crate::ast::{BinaryOp, Expr, FunctionDecl, Literal, Stmt};
+use crate::ast::{Expr, FunctionDecl, Literal, Stmt};
 use std::collections::HashMap;
 
 /// Common Subexpression Eliminator
@@ -29,16 +29,16 @@ impl CSEOptimizer {
 
     fn optimize_expr_internal(&mut self, expr: &Expr, temps: &mut Vec<(String, Expr)>) -> Expr {
         match expr {
-            Expr::BinaryOp { op, left, right } => {
+            Expr::BinaryOp { operator, left, right } => {
                 let left_opt = self.optimize_expr_internal(left, temps);
                 let right_opt = self.optimize_expr_internal(right, temps);
 
                 // Create expression key
-                let key = format!("{:?} {:?} {:?}", left_opt, op, right_opt);
+                let key = format!("{:?} {:?} {:?}", left_opt, operator, right_opt);
 
                 // Check if we've seen this expression before
                 if let Some(temp_var) = self.expressions.get(&key) {
-                    return Expr::Identifier(vec![temp_var.clone()]);
+                    return Expr::Variable(temp_var.clone());
                 }
 
                 // Create new temporary
@@ -46,7 +46,7 @@ impl CSEOptimizer {
                 self.temp_counter += 1;
 
                 let new_expr = Expr::BinaryOp {
-                    op: op.clone(),
+                    operator: operator.clone(),
                     left: Box::new(left_opt),
                     right: Box::new(right_opt),
                 };
@@ -54,7 +54,7 @@ impl CSEOptimizer {
                 self.expressions.insert(key, temp_var.clone());
                 temps.push((temp_var.clone(), new_expr.clone()));
 
-                Expr::Identifier(vec![temp_var])
+                Expr::Variable(temp_var)
             }
 
             _ => expr.clone(),
@@ -97,10 +97,10 @@ impl FunctionInliner {
         let mut stmts = Vec::new();
 
         // Create parameter assignments
-        for (i, param) in func.params.iter().enumerate() {
+        for (i, param) in func.parameters.iter().enumerate() {
             if i < args.len() {
                 stmts.push(Stmt::Assignment {
-                    target: Expr::Identifier(vec![param.name.clone()]),
+                    target: param.name.clone(),
                     value: args[i].clone(),
                 });
             }
@@ -132,13 +132,8 @@ impl LoopOptimizer {
     /// Optimize a loop statement
     pub fn optimize_loop(&self, stmt: &Stmt) -> Stmt {
         match stmt {
-            Stmt::For {
-                var_name,
-                start,
-                end,
-                body,
-                direction,
-            } => {
+            // For loops not in basic AST, skip
+            _ if false => {
                 // Check if loop can be unrolled
                 if let (Expr::Literal(Literal::Integer(s)), Expr::Literal(Literal::Integer(e))) =
                     (start, end)

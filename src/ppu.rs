@@ -1,45 +1,71 @@
-//! Simple PPU file implementation
+//! PPU (Precompiled Pascal Unit) file format support
 
-use crate::ast::Unit;
+use crate::ast::{Module, ModuleError, ModuleResult};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::fs;
+use std::path::Path;
 
-/// PPU file representation
+/// PPU file format for precompiled units
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PpuFile {
-    pub unit: Unit,
-    pub version: String,
+    pub version: u32,
+    pub module: Module,
+    pub checksum: u64,
 }
 
 impl PpuFile {
-    /// Read PPU file from disk
-    pub fn read_from_file(_path: &PathBuf) -> crate::error::Result<Self> {
-        // TODO: Implement actual PPU file reading
-        Ok(PpuFile {
-            unit: Unit {
-                name: "dummy".to_string(),
-                interface: crate::ast::UnitInterface {
-                    uses: vec![],
-                    constants: std::collections::HashMap::new(),
-                    types: std::collections::HashMap::new(),
-                    variables: std::collections::HashMap::new(),
-                    functions: vec![],
-                    procedures: vec![],
-                },
-                implementation: crate::ast::UnitImplementation {
-                    functions: vec![],
-                    procedures: vec![],
-                    initialization: None,
-                    finalization: None,
-                },
-            },
-            version: "0.1.0".to_string(),
-        })
+    /// Create a new PPU file
+    pub fn new(module: Module) -> Self {
+        let checksum = Self::calculate_checksum(&module);
+        Self {
+            version: 1,
+            module,
+            checksum,
+        }
     }
 
-    /// Save PPU file to disk
-    pub fn save_to_file(&self, _path: &PathBuf) -> crate::error::Result<()> {
-        // TODO: Implement actual PPU file saving
-        Ok(())
+    /// Load a PPU file from disk
+    pub fn load<P: AsRef<Path>>(path: P) -> ModuleResult<Self> {
+        let data = fs::read(path.as_ref())
+            .map_err(|e| ModuleError::LoadError(
+                path.as_ref().display().to_string(),
+                e.to_string()
+            ))?;
+        
+        bincode::deserialize(&data)
+            .map_err(|e| ModuleError::LoadError(
+                path.as_ref().display().to_string(),
+                e.to_string()
+            ))
+    }
+
+    /// Save a PPU file to disk
+    pub fn save<P: AsRef<Path>>(&self, path: P) -> ModuleResult<()> {
+        let data = bincode::serialize(self)
+            .map_err(|e| ModuleError::LoadError(
+                path.as_ref().display().to_string(),
+                e.to_string()
+            ))?;
+        
+        fs::write(path.as_ref(), data)
+            .map_err(|e| ModuleError::LoadError(
+                path.as_ref().display().to_string(),
+                e.to_string()
+            ))
+    }
+
+    /// Calculate checksum for a module
+    fn calculate_checksum(module: &Module) -> u64 {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        
+        let mut hasher = DefaultHasher::new();
+        module.name.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    /// Verify checksum
+    pub fn verify_checksum(&self) -> bool {
+        self.checksum == Self::calculate_checksum(&self.module)
     }
 }

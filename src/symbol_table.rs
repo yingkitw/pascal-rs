@@ -6,6 +6,16 @@ use crate::ast::Type;
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 
+/// Function signature information
+#[derive(Debug, Clone)]
+pub struct FunctionSignature {
+    pub name: String,
+    pub parameters: Vec<(String, Type)>, // (name, type) pairs
+    pub return_type: Type,
+    pub is_external: bool,
+    pub external_name: Option<String>,
+}
+
 /// Symbol information
 #[derive(Debug, Clone)]
 pub struct Symbol {
@@ -16,6 +26,7 @@ pub struct Symbol {
     pub is_exported: bool,
     pub is_const: bool,
     pub const_value: Option<ConstValue>,
+    pub function_signature: Option<FunctionSignature>,
 }
 
 /// Constant value for compile-time evaluation
@@ -114,10 +125,71 @@ impl SymbolTable {
             is_exported,
             is_const: false,
             const_value: None,
+            function_signature: None,
         };
 
         self.scopes[self.current_scope].symbols.insert(name, symbol);
         Ok(offset)
+    }
+
+    /// Add a function symbol with signature
+    pub fn add_function(
+        &mut self,
+        name: String,
+        parameters: Vec<(String, Type)>,
+        return_type: Type,
+        is_external: bool,
+        external_name: Option<String>,
+        is_exported: bool,
+    ) -> Result<()> {
+        // Check if symbol already exists in current scope
+        if self.scopes[self.current_scope].symbols.contains_key(&name) {
+            return Err(anyhow!(
+                "Function '{}' already defined in current scope",
+                name
+            ));
+        }
+
+        let signature = FunctionSignature {
+            name: name.clone(),
+            parameters: parameters.clone(),
+            return_type: return_type.clone(),
+            is_external,
+            external_name,
+        };
+
+        let symbol = Symbol {
+            name: name.clone(),
+            typ: return_type,
+            offset: 0, // Functions don't have stack offsets
+            is_parameter: false,
+            is_exported,
+            is_const: false,
+            const_value: None,
+            function_signature: Some(signature),
+        };
+
+        self.scopes[self.current_scope].symbols.insert(name, symbol);
+        Ok(())
+    }
+
+    /// Look up a function signature
+    pub fn lookup_function(&self, name: &str) -> Option<&FunctionSignature> {
+        let mut scope_idx = self.current_scope;
+
+        loop {
+            if let Some(symbol) = self.scopes[scope_idx].symbols.get(name) {
+                if let Some(ref sig) = symbol.function_signature {
+                    return Some(sig);
+                }
+            }
+
+            if let Some(parent) = self.scopes[scope_idx].parent {
+                scope_idx = parent;
+            } else {
+                return None;
+            }
+        }
     }
 
     /// Add a constant symbol

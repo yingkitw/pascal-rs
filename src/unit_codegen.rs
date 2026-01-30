@@ -200,19 +200,13 @@ impl UnitCodeGenerator {
             } => {
                 self.generate_for(var_name, start, end, body)?;
             }
-            Stmt::Block(block) => {
-                for stmt in &block.statements {
+            Stmt::Block(stmts) => {
+                for stmt in stmts {
                     self.generate_statement(stmt)?;
                 }
             }
-            Stmt::ProcedureCall { name, args } => {
-                self.generate_procedure_call(name, args)?;
-            }
-            Stmt::Empty => {
-                // No code for empty statement
-            }
-            _ => {
-                writeln!(&mut self.output, "    # Unsupported statement")?;
+            Stmt::ProcedureCall { name, arguments } => {
+                self.generate_procedure_call(name, arguments)?;
             }
         }
         Ok(())
@@ -376,31 +370,22 @@ impl UnitCodeGenerator {
             Expr::Literal(lit) => {
                 self.generate_literal(lit)?;
             }
-            Expr::Identifier(parts) => {
-                // For now, just handle simple identifiers
-                if let Some(name) = parts.first() {
-                    let offset = self.get_variable_offset(name);
-                    writeln!(
-                        &mut self.output,
-                        "    mov rax, [rbp - {}]  # Load {}",
-                        offset, name
-                    )?;
-                } else {
-                    writeln!(&mut self.output, "    xor rax, rax  # Empty identifier")?;
-                }
+            Expr::Variable(name) => {
+                let offset = self.get_variable_offset(name);
+                writeln!(
+                    &mut self.output,
+                    "    mov rax, [rbp - {}]  # Load {}",
+                    offset, name
+                )?;
             }
-            Expr::BinaryOp { op, left, right } => {
-                self.generate_binary_op(op, left, right)?;
+            Expr::BinaryOp { operator, left, right } => {
+                self.generate_binary_op(&operator, left, right)?;
             }
-            Expr::UnaryOp { op, expr } => {
-                self.generate_unary_op(op, expr)?;
+            Expr::UnaryOp { operator, operand } => {
+                self.generate_unary_op(&operator, operand)?;
             }
-            Expr::FunctionCall { name, args } => {
-                self.generate_function_call(name, args)?;
-            }
-            _ => {
-                writeln!(&mut self.output, "    # Unsupported expression")?;
-                writeln!(&mut self.output, "    xor rax, rax")?;
+            Expr::FunctionCall { name, arguments } => {
+                self.generate_function_call(name, arguments)?;
             }
         }
         Ok(())
@@ -433,10 +418,6 @@ impl UnitCodeGenerator {
             Literal::Nil => {
                 writeln!(&mut self.output, "    xor rax, rax  # nil")?;
             }
-            _ => {
-                writeln!(&mut self.output, "    # Unsupported literal type")?;
-                writeln!(&mut self.output, "    xor rax, rax")?;
-            }
         }
         Ok(())
     }
@@ -444,7 +425,7 @@ impl UnitCodeGenerator {
     /// Generate binary operation
     fn generate_binary_op(
         &mut self,
-        op: &BinaryOp,
+        op: &str,
         left: &Box<Expr>,
         right: &Box<Expr>,
     ) -> Result<()> {
@@ -460,59 +441,59 @@ impl UnitCodeGenerator {
 
         // Perform operation
         match op {
-            BinaryOp::Add => {
+            "+" => {
                 writeln!(&mut self.output, "    add rax, rdx")?;
             }
-            BinaryOp::Subtract => {
+            "-" => {
                 writeln!(&mut self.output, "    sub rdx, rax")?;
                 writeln!(&mut self.output, "    mov rax, rdx")?;
             }
-            BinaryOp::Multiply => {
+            "*" => {
                 writeln!(&mut self.output, "    imul rax, rdx")?;
             }
-            BinaryOp::Divide => {
+            "/" => {
                 writeln!(&mut self.output, "    mov rax, rdx")?;
                 writeln!(&mut self.output, "    cqo")?;
                 writeln!(&mut self.output, "    idiv rdx")?;
             }
-            BinaryOp::Equal => {
+            "=" => {
                 writeln!(&mut self.output, "    cmp rdx, rax")?;
                 writeln!(&mut self.output, "    sete al")?;
                 writeln!(&mut self.output, "    movzx rax, al")?;
             }
-            BinaryOp::NotEqual => {
+            "<>" => {
                 writeln!(&mut self.output, "    cmp rdx, rax")?;
                 writeln!(&mut self.output, "    setne al")?;
                 writeln!(&mut self.output, "    movzx rax, al")?;
             }
-            BinaryOp::Less => {
+            "<" => {
                 writeln!(&mut self.output, "    cmp rdx, rax")?;
                 writeln!(&mut self.output, "    setl al")?;
                 writeln!(&mut self.output, "    movzx rax, al")?;
             }
-            BinaryOp::LessOrEqual => {
+            "<=" => {
                 writeln!(&mut self.output, "    cmp rdx, rax")?;
                 writeln!(&mut self.output, "    setle al")?;
                 writeln!(&mut self.output, "    movzx rax, al")?;
             }
-            BinaryOp::Greater => {
+            ">" => {
                 writeln!(&mut self.output, "    cmp rdx, rax")?;
                 writeln!(&mut self.output, "    setg al")?;
                 writeln!(&mut self.output, "    movzx rax, al")?;
             }
-            BinaryOp::GreaterOrEqual => {
+            ">=" => {
                 writeln!(&mut self.output, "    cmp rdx, rax")?;
                 writeln!(&mut self.output, "    setge al")?;
                 writeln!(&mut self.output, "    movzx rax, al")?;
             }
-            BinaryOp::And => {
+            "and" => {
                 writeln!(&mut self.output, "    and rax, rdx")?;
             }
-            BinaryOp::Or => {
+            "or" => {
                 writeln!(&mut self.output, "    or rax, rdx")?;
             }
             _ => {
-                writeln!(&mut self.output, "    # Unsupported binary op")?;
+                writeln!(&mut self.output, "    # Unsupported binary op: {}", op)?;
                 writeln!(&mut self.output, "    xor rax, rax")?;
             }
         }
@@ -521,23 +502,23 @@ impl UnitCodeGenerator {
     }
 
     /// Generate unary operation
-    fn generate_unary_op(&mut self, op: &UnaryOp, expr: &Box<Expr>) -> Result<()> {
+    fn generate_unary_op(&mut self, op: &str, expr: &Box<Expr>) -> Result<()> {
         self.generate_expression(expr)?;
 
         match op {
-            UnaryOp::Minus | UnaryOp::Negate => {
+            "-" => {
                 writeln!(&mut self.output, "    neg rax")?;
             }
-            UnaryOp::Not => {
+            "not" => {
                 writeln!(&mut self.output, "    test rax, rax")?;
                 writeln!(&mut self.output, "    setz al")?;
                 writeln!(&mut self.output, "    movzx rax, al")?;
             }
-            UnaryOp::Plus => {
+            "+" => {
                 // No operation needed
             }
             _ => {
-                writeln!(&mut self.output, "    # Unsupported unary op")?;
+                writeln!(&mut self.output, "    # Unsupported unary op: {}", op)?;
             }
         }
 
@@ -669,9 +650,10 @@ mod tests {
             name: "TestUnit".to_string(),
             uses: vec![],
             interface: UnitInterface {
-                types: vec![],
-                constants: vec![],
-                variables: vec![],
+                uses: vec![],
+                types: HashMap::new(),
+                constants: HashMap::new(),
+                variables: HashMap::new(),
                 procedures: vec![],
                 functions: vec![],
                 classes: vec![],

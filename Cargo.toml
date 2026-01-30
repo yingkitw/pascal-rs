@@ -2,9 +2,9 @@
 name = "pascal"
 version = "0.1.0"
 edition = "2024"
-authors = ["Your Name <your.email@example.com>"]
-license = "MIT"
-repository = "https://github.com/yourusername/pascal"
+authors = ["Ying Kit WONG"]
+license = "Apache-2.0"
+repository = "https://github.com/yingkitw/pascal-rs"
 keywords = ["compiler", "pascal", "education"]
 categories = ["command-line-utilities", "compilers"]
 description = "A production-ready optimizing Pascal compiler"

@@ -147,18 +147,18 @@ impl ModuleResolver {
             );
         }
 
-        // TODO: Add classes from interface when class support is fully implemented
-        // for class_decl in &module.unit.interface.classes {
-        //     table.classes.insert(
-        //         class_decl.name.clone(),
-        //         SymbolInfo {
-        //             name: class_decl.name.clone(),
-        //             module: module.name.clone(),
-        //             is_public: true,
-        //             kind: SymbolKind::Class,
-        //         },
-        //     );
-        // }
+        // Add classes from interface
+        for class_decl in &module.unit.interface.classes {
+            table.classes.insert(
+                class_decl.name.clone(),
+                SymbolInfo {
+                    name: class_decl.name.clone(),
+                    module: module.name.clone(),
+                    is_public: true,
+                    kind: SymbolKind::Class,
+                },
+            );
+        }
 
         self.symbol_tables.insert(module.name.clone(), table);
         Ok(())

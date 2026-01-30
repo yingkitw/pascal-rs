@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
-use pascal::{CompileOptions, Compiler, PpuFile};
+use pascal::ppu::PpuFile;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -121,41 +121,26 @@ fn compile_file(
 
     if verbose {
         println!("{} {}", "Compiling:".green().bold(), input.display());
-    }
-
-    // Create compilation options
-    let options = CompileOptions {
-        output_dir: output.clone(),
-    };
-
-    if verbose {
         println!("{}", "Configuration:".cyan().bold());
         println!("  Output directory: {}", output.display());
     }
 
-    // Create compiler
-    let mut compiler = Compiler::new(options);
-
-    // Compile the file
-    if verbose {
-        println!("{}", "Parsing and compiling...".cyan().bold());
-    }
-
-    match compiler.compile_file(input.to_str().unwrap()) {
-        Ok(result) => {
-            println!("{} Compilation complete", "Success:".green().bold());
-
-            for message in result.messages {
-                println!("  {}", message);
-            }
-
-            Ok(())
-        }
-        Err(e) => {
-            eprintln!("{} {}", "Compilation failed:".red().bold(), e);
-            std::process::exit(1);
-        }
-    }
+    // TODO: Implement full compilation pipeline
+    // For now, provide a placeholder message
+    println!(
+        "{} Compilation functionality is being implemented",
+        "Note:".yellow().bold()
+    );
+    println!("  Input: {}", input.display());
+    println!("  Output: {}", output.display());
+    
+    eprintln!(
+        "{} Full compiler integration is not yet complete",
+        "Warning:".yellow().bold()
+    );
+    eprintln!("  The compiler modules are available but need to be integrated into the CLI");
+    
+    Ok(())
 }
 
 fn show_ppu_info(ppu_file: PathBuf) -> Result<()> {
@@ -170,32 +155,36 @@ fn show_ppu_info(ppu_file: PathBuf) -> Result<()> {
 
     println!("{} {}", "PPU File:".cyan().bold(), ppu_file.display());
 
-    match PpuFile::read_from_file(&ppu_file) {
+    match PpuFile::load(&ppu_file) {
         Ok(ppu) => {
             println!("{}", "Version:".green().bold());
             println!("  Version: {}", ppu.version);
 
+            println!("{}", "\nModule:".green().bold());
+            println!("  Name: {}", ppu.module.name);
+            println!("  Dependencies: {:?}", ppu.module.dependencies);
+
             println!("{}", "\nUnit:".green().bold());
-            println!("  Name: {}", ppu.unit.name);
+            println!("  Name: {}", ppu.module.unit.name);
 
             println!("{}", "\nInterface:".green().bold());
-            println!("  Uses: {:?}", ppu.unit.interface.uses);
-            println!("  Types: {}", ppu.unit.interface.types.len());
-            println!("  Constants: {}", ppu.unit.interface.constants.len());
-            println!("  Variables: {}", ppu.unit.interface.variables.len());
-            println!("  Functions: {}", ppu.unit.interface.functions.len());
-            println!("  Procedures: {}", ppu.unit.interface.procedures.len());
+            println!("  Uses: {:?}", ppu.module.unit.interface.uses);
+            println!("  Types: {}", ppu.module.unit.interface.types.len());
+            println!("  Constants: {}", ppu.module.unit.interface.constants.len());
+            println!("  Variables: {}", ppu.module.unit.interface.variables.len());
+            println!("  Functions: {}", ppu.module.unit.interface.functions.len());
+            println!("  Procedures: {}", ppu.module.unit.interface.procedures.len());
 
             println!("{}", "\nImplementation:".green().bold());
-            println!("  Functions: {}", ppu.unit.implementation.functions.len());
-            println!("  Procedures: {}", ppu.unit.implementation.procedures.len());
+            println!("  Functions: {}", ppu.module.unit.implementation.functions.len());
+            println!("  Procedures: {}", ppu.module.unit.implementation.procedures.len());
             println!(
                 "  Has initialization: {}",
-                ppu.unit.implementation.initialization.is_some()
+                ppu.module.unit.implementation.initialization.is_some()
             );
             println!(
                 "  Has finalization: {}",
-                ppu.unit.implementation.finalization.is_some()
+                ppu.module.unit.implementation.finalization.is_some()
             );
 
             Ok(())

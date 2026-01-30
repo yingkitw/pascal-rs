@@ -1,7 +1,7 @@
 use logos::Logos;
 
-/// Enhanced token definitions based on Free Pascal Compiler
-/// This provides comprehensive Pascal language support
+/// Enhanced token definitions for comprehensive Pascal language support
+/// This provides complete Pascal language token coverage
 #[derive(Logos, Debug, Clone, PartialEq)]
 pub enum EnhancedToken {
     // Operators (can be overloaded)
@@ -715,9 +715,6 @@ pub enum EnhancedToken {
     #[token("logicalxor")]
     Logicalxor,
 
-    #[token("oldfpccall")]
-    Oldfpccall,
-
     #[token("openstring")]
     Openstring,
 
@@ -856,7 +853,6 @@ impl EnhancedToken {
                 | Self::Local
                 | Self::Noinline
                 | Self::Noreturn
-                | Self::Oldfpccall
                 | Self::Platform
                 | Self::Deprecated
         )

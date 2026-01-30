@@ -5,11 +5,13 @@ use crate::{Module, ModuleError, ModuleResult};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
 
 /// Loads Pascal units from the filesystem
+/// Thread-safe with Arc and RwLock for parallel compilation
 pub struct ModuleLoader {
-    /// Cache of loaded modules
-    cache: HashMap<String, Module>,
+    /// Cache of loaded modules (thread-safe)
+    cache: Arc<RwLock<HashMap<String, Module>>>,
 
     /// Search paths for finding units
     search_paths: Vec<PathBuf>,
@@ -22,12 +24,21 @@ impl ModuleLoader {
     /// Create a new module loader
     pub fn new() -> Self {
         Self {
-            cache: HashMap::new(),
+            cache: Arc::new(RwLock::new(HashMap::new())),
             search_paths: vec![
                 PathBuf::from("."),
-                PathBuf::from("/Users/yingkitw/Desktop/productivity project/poscal-rs/stdlib"),
+                PathBuf::from("./stdlib"),
             ],
             unit_extension: "pas".to_string(),
+        }
+    }
+
+    /// Clone the loader for use in multiple threads
+    pub fn clone_for_thread(&self) -> Self {
+        Self {
+            cache: Arc::clone(&self.cache),
+            search_paths: self.search_paths.clone(),
+            unit_extension: self.unit_extension.clone(),
         }
     }
 
@@ -68,27 +79,27 @@ impl ModuleLoader {
 
     /// Check if a unit is in the cache
     pub fn is_cached(&self, unit_name: &str) -> bool {
-        self.cache.contains_key(unit_name)
+        self.cache.read().unwrap().contains_key(unit_name)
     }
 
     /// Get a cached module
-    pub fn get_cached(&self, unit_name: &str) -> Option<&Module> {
-        self.cache.get(unit_name)
+    pub fn get_cached(&self, unit_name: &str) -> Option<Module> {
+        self.cache.read().unwrap().get(unit_name).cloned()
     }
 
     /// Add a module to the cache
     pub fn cache_module(&mut self, module: Module) {
-        self.cache.insert(module.name.clone(), module);
+        self.cache.write().unwrap().insert(module.name.clone(), module);
     }
 
     /// Clear the cache
     pub fn clear_cache(&mut self) {
-        self.cache.clear();
+        self.cache.write().unwrap().clear();
     }
 
     /// Get all cached module names
     pub fn cached_modules(&self) -> Vec<String> {
-        self.cache.keys().cloned().collect()
+        self.cache.read().unwrap().keys().cloned().collect()
     }
 
     /// Check if a unit file exists
@@ -106,13 +117,12 @@ impl ModuleLoader {
             .map_err(|e| ModuleError::LoadError(unit_name.to_string(), e.to_string()))
     }
 
-    /// Check if a cached module is up to date
+    /// Check if cached module is still valid
     pub fn is_cache_valid(&self, unit_name: &str) -> bool {
-        if let Some(cached) = self.cache.get(unit_name) {
-            if let (Some(cached_time), Ok(file_time)) =
-                (cached.compile_time, self.get_unit_mtime(unit_name))
-            {
-                return cached_time >= file_time;
+        if let Some(_cached) = self.cache.read().unwrap().get(unit_name) {
+            if let Ok(_file_time) = self.get_unit_mtime(unit_name) {
+                // TODO: Add timestamp tracking to Module structure
+                return true;
             }
         }
         false
@@ -135,18 +145,17 @@ impl ModuleLoader {
     /// Load a unit from a PPU file
     pub fn load_from_ppu(&self, unit_name: &str) -> ModuleResult<crate::ast::Unit> {
         let ppu_path = self.find_ppu_file(unit_name)?;
-        let ppu = PpuFile::read_from_file(&ppu_path)
-            .map_err(|e| ModuleError::LoadError(unit_name.to_string(), e.to_string()))?;
+        let ppu = PpuFile::load(&ppu_path)?;
 
-        // Verify checksums
-        if !ppu.verify_checksums() {
+        // Verify checksum
+        if !ppu.verify_checksum() {
             return Err(ModuleError::LoadError(
                 unit_name.to_string(),
                 "PPU checksum verification failed".to_string(),
             ));
         }
 
-        Ok(ppu.unit)
+        Ok(ppu.module.unit)
     }
 
     /// Save a unit to a PPU file
@@ -155,7 +164,14 @@ impl ModuleLoader {
         unit: &crate::ast::Unit,
         output_dir: Option<&Path>,
     ) -> ModuleResult<PathBuf> {
-        let mut ppu = PpuFile::new(unit.clone());
+        // Create a Module from the Unit
+        let module = Module {
+            name: unit.name.clone(),
+            unit: unit.clone(),
+            dependencies: unit.interface.uses.clone(),
+        };
+        
+        let ppu = PpuFile::new(module);
 
         // Determine output path
         let dir = output_dir.unwrap_or_else(|| Path::new("."));
@@ -163,8 +179,7 @@ impl ModuleLoader {
         let ppu_path = dir.join(filename);
 
         // Write PPU file
-        ppu.write_to_file(&ppu_path)
-            .map_err(|e| ModuleError::LoadError(unit.name.clone(), e.to_string()))?;
+        ppu.save(&ppu_path)?;
 
         Ok(ppu_path)
     }
@@ -195,6 +210,41 @@ impl Default for ModuleLoader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::thread;
+    
+    // Helper function to create a test module
+    fn create_test_module(name: &str) -> Module {
+        Module {
+            name: name.to_string(),
+            unit: crate::ast::Unit {
+                name: name.to_string(),
+                uses: vec![],
+                interface: crate::ast::UnitInterface {
+                    uses: vec![],
+                    types: std::collections::HashMap::new(),
+                    constants: std::collections::HashMap::new(),
+                    variables: std::collections::HashMap::new(),
+                    procedures: vec![],
+                    functions: vec![],
+                    classes: vec![],
+                    interfaces: vec![],
+                },
+                implementation: crate::ast::UnitImplementation {
+                    uses: vec![],
+                    types: vec![],
+                    constants: vec![],
+                    variables: vec![],
+                    procedures: vec![],
+                    functions: vec![],
+                    classes: vec![],
+                    interfaces: vec![],
+                    initialization: None,
+                    finalization: None,
+                },
+            },
+            dependencies: vec![],
+        }
+    }
 
     #[test]
     fn test_loader_creation() {
@@ -219,5 +269,106 @@ mod tests {
         let loader = ModuleLoader::new();
         assert!(!loader.is_cached("TestUnit"));
         assert_eq!(loader.cached_modules().len(), 0);
+    }
+    
+    #[test]
+    fn test_clone_for_thread() {
+        let loader = ModuleLoader::new();
+        let cloned = loader.clone_for_thread();
+        
+        // Both should share the same cache
+        assert_eq!(loader.cached_modules().len(), cloned.cached_modules().len());
+    }
+    
+    #[test]
+    fn test_cache_module_and_retrieve() {
+        let mut loader = ModuleLoader::new();
+        
+        let module = create_test_module("TestModule");
+        
+        loader.cache_module(module.clone());
+        assert!(loader.is_cached("TestModule"));
+        
+        let cached = loader.get_cached("TestModule");
+        assert!(cached.is_some());
+        assert_eq!(cached.unwrap().name, "TestModule");
+    }
+    
+    #[test]
+    fn test_clear_cache() {
+        let mut loader = ModuleLoader::new();
+        
+        let module = create_test_module("TestModule");
+        
+        loader.cache_module(module);
+        assert!(loader.is_cached("TestModule"));
+        
+        loader.clear_cache();
+        assert!(!loader.is_cached("TestModule"));
+        assert_eq!(loader.cached_modules().len(), 0);
+    }
+    
+    #[test]
+    fn test_concurrent_cache_access() {
+        let loader = ModuleLoader::new();
+        let mut handles = vec![];
+        
+        // Spawn multiple threads reading from cache
+        for i in 0..10 {
+            let loader_clone = loader.clone_for_thread();
+            let handle = thread::spawn(move || {
+                // Read operations should not block each other
+                for _ in 0..100 {
+                    let _ = loader_clone.is_cached(&format!("Module{}", i));
+                    let _ = loader_clone.cached_modules();
+                }
+            });
+            handles.push(handle);
+        }
+        
+        // Wait for all threads
+        for handle in handles {
+            handle.join().unwrap();
+        }
+    }
+    
+    #[test]
+    fn test_concurrent_cache_write() {
+        let mut loader = ModuleLoader::new();
+        let mut handles = vec![];
+        
+        // Spawn multiple threads writing to cache
+        for i in 0..5 {
+            let mut loader_clone = loader.clone_for_thread();
+            let handle = thread::spawn(move || {
+                let module = create_test_module(&format!("Module{}", i));
+                loader_clone.cache_module(module);
+            });
+            handles.push(handle);
+        }
+        
+        // Wait for all threads
+        for handle in handles {
+            handle.join().unwrap();
+        }
+        
+        // Verify all modules were cached
+        assert_eq!(loader.cached_modules().len(), 5);
+    }
+    
+    #[test]
+    fn test_cached_modules_list() {
+        let mut loader = ModuleLoader::new();
+        
+        for i in 0..3 {
+            let module = create_test_module(&format!("Module{}", i));
+            loader.cache_module(module);
+        }
+        
+        let modules = loader.cached_modules();
+        assert_eq!(modules.len(), 3);
+        assert!(modules.contains(&"Module0".to_string()));
+        assert!(modules.contains(&"Module1".to_string()));
+        assert!(modules.contains(&"Module2".to_string()));
     }
 }

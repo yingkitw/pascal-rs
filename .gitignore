@@ -1,1 +1,36 @@
+# Rust build artifacts
 /target
+Cargo.lock
+
+# Build outputs
+/build/**/*.s
+/build/**/*.o
+/build/**/*.out
+
+# Runtime library builds
+/runtime/*.o
+/runtime/*.a
+/runtime/*.dylib
+/runtime/*.so
+/runtime/test_runtime
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+.DS_Store
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+
+# Test outputs
+*.ppu
+*.log
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
