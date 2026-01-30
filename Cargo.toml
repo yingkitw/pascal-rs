@@ -1,34 +1,59 @@
-[workspace]
-resolver = "3"
-members = [
-    "crates/minipas-lexer",
-    "crates/minipas-ast", 
-    "crates/minipas-parser",
-    "crates/minipas-codegen",
-    "crates/minipas-module",
-    "crates/minipas-cli"
-, "crates/minipas-driver"]
-
-[workspace.package]
+[package]
+name = "pascal"
 version = "0.1.0"
 edition = "2024"
 authors = ["Your Name <your.email@example.com>"]
 license = "MIT"
-repository = "https://github.com/yourusername/minipas"
+repository = "https://github.com/yourusername/pascal"
 keywords = ["compiler", "pascal", "education"]
 categories = ["command-line-utilities", "compilers"]
+description = "A production-ready optimizing Pascal compiler"
 
-[workspace.dependencies]
+[[bin]]
+name = "pascal"
+path = "src/main.rs"
+
+[dependencies]
+# Core dependencies
 clap = { version = "4.5", features = ["derive"] }
-logos = "0.15"
-lalrpop-util = "0.21"
-thiserror = "2.0"
 anyhow = "1.0"
+thiserror = "2.0"
+logos = "0.15"
+serde = { version = "1.0", features = ["derive"] }
+bincode = "1.3"
+rayon = "1.10"
+
+# CLI output
+colored = "2.1"
+
+# LSP support (optional)
+tower-lsp = { version = "0.20", optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
+serde_json = { version = "1.0", optional = true }
+
+# macOS GUI support (optional)
+cocoa = { version = "0.25", optional = true }
+objc = { version = "0.2.7", optional = true }
+
+# Debug support (optional)  
+gimli = { version = "0.31", optional = true }
+
+# Profiling (optional)
+pprof = { version = "0.13", optional = true }
+
+[dev-dependencies]
 assert_cmd = "2.0"
 predicates = "3.1"
 tempfile = "3.10"
 assert_matches = "1.5"
-version_check = "0.9"
+insta = "1.41"
 
-# This is now a workspace-only project
-# All functionality has been moved to individual crates
+[features]
+default = []
+lsp = ["tower-lsp", "tokio", "serde_json"]
+gui = ["cocoa", "objc"]
+debug = ["gimli"]
+profile = ["pprof"]
+
+[workspace]
+resolver = "3"

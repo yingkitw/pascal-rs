@@ -1,6 +1,6 @@
-# MiniPAS Standard Library
+# poscal-rs Standard Library
 
-This directory contains the standard library units for the MiniPAS Pascal compiler.
+This directory contains the standard library units for the poscal-rs Pascal compiler.
 
 ## 📚 Available Units
 
@@ -248,12 +248,12 @@ Coverage:
 
 - All units follow Free Pascal Compiler (FPC) conventions
 - Compatible with Delphi and Turbo Pascal where applicable
-- Optimized for the MiniPAS compiler
+- Optimized for the poscal-rs compiler
 - Full source code included for transparency
 
 ## 🔗 Related Documentation
 
-- [MiniPAS Compiler Documentation](../README.md)
+- [poscal-rs Compiler Documentation](../README.md)
 - [Language Reference](../docs/LANGUAGE_REFERENCE.md)
 - [API Documentation](../docs/API_DOCUMENTATION.md)
 
@@ -261,4 +261,4 @@ Coverage:
 
 *Standard Library Version: 1.0*  
 *Last Updated: October 16, 2025*  
-*Compatible with: MiniPAS Compiler v1.0+*
+*Compatible with: poscal-rs Compiler v1.0+*

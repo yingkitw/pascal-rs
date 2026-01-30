@@ -1,22 +1,23 @@
-# Architecture - minipas Pascal Compiler
+# Architecture - pascal-rs Pascal Compiler
 
 ## 🏗️ **Overview**
 
-minipas is a modern Pascal compiler written in Rust, featuring a modular architecture with enhanced components migrated from the Free Pascal Compiler (FPC). The project follows Rust best practices with trait-based design for testability and maintainability.
+pascal-rs is a modern Pascal compiler written in Rust, featuring a modular architecture with enhanced components migrated from the Free Pascal Compiler (FPC). The project follows Rust best practices with trait-based design for testability and maintainability.
 
 ## 📁 **Project Structure**
 
 ```
-minipas/
+pascal-rs/
 ├── build/                    # Build artifacts and generated files
 │   └── examples/            # Generated assembly files (.s)
 ├── crates/                  # Modular Rust crates
-│   ├── minipas-ast/        # Abstract Syntax Tree definitions
-│   ├── minipas-cli/        # Command-line interface
-│   ├── minipas-codegen/    # Code generation and optimization
-│   ├── minipas-lexer/      # Lexical analysis and tokenization
-│   ├── minipas-module/     # Module system (units, dependencies, symbol resolution)
-│   └── minipas-parser/     # Syntax analysis and parsing
+│   ├── pascal-ast/           # Abstract Syntax Tree definitions
+│   ├── pascal-cli/           # Command-line interface
+│   ├── pascal-codegen/       # Code generation and optimization
+│   ├── pascal-lexer/         # Lexical analysis and tokenization
+│   ├── pascal-module/        # Module system (units, dependencies, symbol resolution)
+│   ├── pascal-lcl/           # LCL for macOS Cocoa
+│   └── pascal-parser/        # Syntax analysis and parsing
 ├── docs/                    # Documentation
 │   ├── migration/          # FPC migration documentation
 │   └── [generated docs]    # Rustdoc output
@@ -75,7 +76,7 @@ graph LR
 
 ## 📦 **Crate Details**
 
-### **1. minipas-lexer** (`crates/minipas-lexer/`)
+### **1. pascal-lexer** (`crates/pascal-lexer/`)
 
 **Purpose**: Lexical analysis and tokenization of Pascal source code
 
@@ -94,7 +95,7 @@ graph LR
 - Advanced operators and keywords
 - Error handling and position tracking
 
-### **2. minipas-parser** (`crates/minipas-parser/`)
+### **2. pascal-parser** (`crates/pascal-parser/`)
 
 **Purpose**: Syntax analysis and AST construction
 
@@ -110,7 +111,7 @@ graph LR
 - Error recovery and reporting
 - Support for all Pascal constructs
 
-### **3. minipas-ast** (`crates/minipas-ast/`)
+### **3. pascal-ast** (`crates/pascal-ast/`)
 
 **Purpose**: Abstract Syntax Tree definitions
 
@@ -125,7 +126,7 @@ graph LR
 - Generic programming support
 - Exception handling structures
 
-### **4. minipas-codegen** (`crates/minipas-codegen/`)
+### **4. pascal-codegen** (`crates/pascal-codegen/`)
 
 **Purpose**: Code generation and optimization
 
@@ -142,7 +143,7 @@ graph LR
 - Calling conventions
 - Debug information generation
 
-### **5. minipas-cli** (`crates/minipas-cli/`)
+### **5. pascal-cli** (`crates/pascal-cli/`)
 
 **Purpose**: Command-line interface
 
@@ -236,11 +237,20 @@ The project uses Cargo workspaces for dependency management:
 [workspace]
 resolver = "3"
 members = [
-    "crates/minipas-ast",
-    "crates/minipas-cli", 
-    "crates/minipas-codegen",
-    "crates/minipas-lexer",
-    "crates/minipas-parser",
+    "crates/pascal-ast",
+    "crates/pascal-cli", 
+    "crates/pascal-codegen",
+    "crates/pascal-lexer",
+    "crates/pascal-parser",
+    "crates/pascal-module",
+    "crates/pascal-driver",
+    "crates/pascal-lcl",
+    "crates/pascal-lsp",
+    "crates/pascal-debug",
+    "crates/pascal-pkg",
+    "crates/pascal-plugin",
+    "crates/pascal-profile",
+    "crates/pascal-rad",
 ]
 ```
 
@@ -299,5 +309,5 @@ members = [
 
 ---
 
-*Last updated: December 2024*
-*Architecture version: 2.0 (Post-FPC Migration)*
+*Last updated: January 2026*
+*Architecture version: 3.0 (Post-Milestone 3 Complete)*

@@ -8,7 +8,7 @@
 
 ## 🎯 Executive Summary
 
-MiniPAS has successfully completed Milestone 3, transforming from a basic compiler into a **production-ready, full-featured optimizing compiler** with capabilities comparable to GCC -O2 and LLVM optimization levels.
+poscal-rs has successfully completed Milestone 3, transforming from a basic compiler into a **production-ready, full-featured optimizing compiler** with capabilities comparable to GCC -O2 and LLVM optimization levels.
 
 ### Key Achievements
 - ✅ Complete code generation pipeline (x86-64 assembly)
@@ -248,16 +248,16 @@ x := y << 3;  // Shift left by 3
 ### Compile with Optimizations
 ```bash
 # Basic compilation
-minipas compile MyProgram.pas
+poscal-rs compile MyProgram.pas
 
 # With optimizations
-minipas compile MyProgram.pas -O2
+poscal-rs compile MyProgram.pas -O2
 
 # With assembly output
-minipas compile MyProgram.pas -S -O2
+poscal-rs compile MyProgram.pas -S -O2
 
 # With debug info
-minipas compile MyProgram.pas -d -v
+poscal-rs compile MyProgram.pas -d -v
 ```
 
 ### Generated Assembly Example
@@ -364,7 +364,7 @@ factorial:
 ╔═══════════════════════════════════════════╗
 ║         COMPILER FEATURE COMPARISON       ║
 ╠═══════════════════════════════════════════╣
-║  Feature              MiniPAS    GCC      ║
+║  Feature              poscal-rs    GCC      ║
 ║  Code Generation      ✅         ✅       ║
 ║  Register Allocation  ✅         ✅       ║
 ║  Constant Folding     ✅         ✅       ║
@@ -409,7 +409,7 @@ factorial:
 
 ## 🎉 Conclusion
 
-**Milestone 3 is a major achievement!** The MiniPAS compiler has evolved from a basic compiler into a production-ready, full-featured optimizing compiler with capabilities that rival professional compilers like GCC and LLVM.
+**Milestone 3 is a major achievement!** The poscal-rs compiler has evolved from a basic compiler into a production-ready, full-featured optimizing compiler with capabilities that rival professional compilers like GCC and LLVM.
 
 ### Key Takeaways
 - ✅ **Production Ready**: Complete, tested, and working
@@ -417,7 +417,7 @@ factorial:
 - ✅ **Well Tested**: 87 tests, 100% passing
 - ✅ **Professional Quality**: Comparable to GCC -O2
 
-**The MiniPAS compiler is now ready for real-world use!** 🚀
+**The poscal-rs compiler is now ready for real-world use!** 🚀
 
 ---
 

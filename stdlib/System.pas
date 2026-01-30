@@ -115,4 +115,13 @@ const
   
 implementation
 
+function ParamCount: Integer;
+external 'pas_paramcount';
+
+function ParamStr(I: Integer): string;
+external 'pas_paramstr';
+
+procedure Halt;
+external 'pas_halt';
+
 end.

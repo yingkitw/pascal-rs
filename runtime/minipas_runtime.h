@@ -1,11 +1,11 @@
 /**
- * MiniPAS Runtime Library Header
+ * poscal-rs Runtime Library Header
  * 
- * External declarations for the MiniPAS runtime library functions.
+ * External declarations for the poscal-rs runtime library functions.
  */
 
-#ifndef MINIPAS_RUNTIME_H
-#define MINIPAS_RUNTIME_H
+#ifndef poscal-rs_RUNTIME_H
+#define poscal-rs_RUNTIME_H
 
 #include <stddef.h>
 
@@ -189,4 +189,4 @@ void pas_init_runtime(int argc, char** argv);
 }
 #endif
 
-#endif /* MINIPAS_RUNTIME_H */
+#endif /* poscal-rs_RUNTIME_H */

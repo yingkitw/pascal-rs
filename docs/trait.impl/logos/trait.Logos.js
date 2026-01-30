@@ -1,5 +1,5 @@
 (function() {
-    var implementors = Object.fromEntries([["minipas",[["impl&lt;'s&gt; Logos&lt;'s&gt; for <a class=\"enum\" href=\"minipas/lexer/enum.Token.html\" title=\"enum minipas::lexer::Token\">Token</a>"]]]]);
+    var implementors = Object.fromEntries([["poscal-rs",[["impl&lt;'s&gt; Logos&lt;'s&gt; for <a class=\"enum\" href=\"poscal-rs/lexer/enum.Token.html\" title=\"enum poscal-rs::lexer::Token\">Token</a>"]]]]);
     if (window.register_implementors) {
         window.register_implementors(implementors);
     } else {

@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This analysis compares Free Pascal Compiler (FPC) capabilities with the current Rust implementation of minipas. The analysis reveals significant gaps in advanced Pascal language features that are not yet implemented in the Rust version.
+This analysis compares Free Pascal Compiler (FPC) capabilities with the current Rust implementation of poscal-rs. The analysis reveals significant gaps in advanced Pascal language features that are not yet implemented in the Rust version.
 
 ## Current Rust Implementation Status
 

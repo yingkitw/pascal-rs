@@ -1,4 +1,4 @@
-# MiniPAS Runtime Library Makefile
+# poscal-rs Runtime Library Makefile
 
 CC = gcc
 AR = ar
@@ -10,7 +10,7 @@ UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
     # macOS
     SHARED_EXT = dylib
-    SHARED_FLAGS = -dynamiclib
+    SHARED_FLAGS = -dynamiclib -undefined dynamic_lookup
 else ifeq ($(UNAME_S),Linux)
     # Linux
     SHARED_EXT = so
@@ -22,17 +22,17 @@ else
 endif
 
 # Output files
-STATIC_LIB = libminipas_runtime.a
-SHARED_LIB = libminipas_runtime.$(SHARED_EXT)
-OBJ = minipas_runtime.o
+STATIC_LIB = libposcal-rs_runtime.a
+SHARED_LIB = libposcal-rs_runtime.$(SHARED_EXT)
+OBJ = poscal-rs_runtime.o
 
 # Targets
 .PHONY: all clean install test
 
 all: $(STATIC_LIB) $(SHARED_LIB)
 
-$(OBJ): minipas_runtime.c minipas_runtime.h
-	$(CC) $(CFLAGS) -c minipas_runtime.c -o $(OBJ)
+$(OBJ): poscal-rs_runtime.c poscal-rs_runtime.h
+	$(CC) $(CFLAGS) -c poscal-rs_runtime.c -o $(OBJ)
 
 $(STATIC_LIB): $(OBJ)
 	$(AR) rcs $(STATIC_LIB) $(OBJ)
@@ -52,7 +52,7 @@ install: all
 	mkdir -p ../lib
 	cp $(STATIC_LIB) ../lib/
 	cp $(SHARED_LIB) ../lib/
-	cp minipas_runtime.h ../lib/
+	cp poscal-rs_runtime.h ../lib/
 	@echo "Installed to ../lib/"
 
 # Test target
@@ -60,11 +60,11 @@ test: test_runtime
 	./test_runtime
 
 test_runtime: test_runtime.c $(STATIC_LIB)
-	$(CC) $(CFLAGS) test_runtime.c -o test_runtime -L. -lminipas_runtime $(LDFLAGS)
+	$(CC) $(CFLAGS) test_runtime.c -o test_runtime -L. -lposcal-rs_runtime $(LDFLAGS)
 
 # Help target
 help:
-	@echo "MiniPAS Runtime Library Build System"
+	@echo "poscal-rs Runtime Library Build System"
 	@echo ""
 	@echo "Targets:"
 	@echo "  all      - Build both static and shared libraries (default)"

@@ -1,7 +1,7 @@
 /**
- * MiniPAS Runtime Library
+ * poscal-rs Runtime Library
  * 
- * This C library implements the runtime functions for the MiniPAS compiler.
+ * This C library implements the runtime functions for the poscal-rs compiler.
  * It provides implementations for all external functions declared in the
  * standard library units (System, SysUtils, Classes, Math).
  */
@@ -15,6 +15,18 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <setjmp.h>
+
+// Add setjmp/longjmp based exception handling
+jmp_buf pas_exception_buf;
+
+void pas_raise(int code) {
+    longjmp(pas_exception_buf, code);
+}
+
+// At the top, after includes
+extern int pas_argc;
+extern char** pas_argv;
 
 /* ============================================================================
  * String Type Definition
@@ -37,7 +49,13 @@ void pas_write(const char* s) {
 
 void pas_writeln(const char* s) {
     printf("%s\n", s);
-    fflush(stdout);
+}
+
+char* pas_readln() {
+    char* line = NULL;
+    size_t len = 0;
+    getline(&line, &len, stdin);
+    return line;
 }
 
 void pas_read(char* c) {
@@ -259,19 +277,40 @@ void pas_halt_code(int exitCode) {
     exit(exitCode);
 }
 
+/* ============================================================================
+ * Global Variables for argc/argv
+ * ============================================================================ */
+
+void pas_init_runtime(int argc, char** argv) {
+    pas_argc = argc;
+    pas_argv = argv;
+}
+
 int pas_paramcount(void) {
-    // This needs to be set by the main program
-    extern int __argc;
-    return __argc - 1;
+    return pas_argc - 1;
 }
 
 void pas_paramstr(int index, char* result, int maxlen) {
-    extern char** __argv;
-    if (index >= 0 && index < __argc) {
-        snprintf(result, maxlen, "%s", __argv[index]);
+    if (index >= 0 && index < pas_argc) {
+        snprintf(result, maxlen, "%s", pas_argv[index]);
     } else {
         result[0] = '\0';
     }
+}
+
+int pas_paramcount() {
+    return pas_argc - 1;
+}
+
+char* pas_paramstr(int i) {
+    if (i >= 0 && i < pas_argc) {
+        return pas_argv[i];
+    }
+    return "";
+}
+
+void pas_halt() {
+    exit(0);
 }
 
 /* ============================================================================
@@ -540,10 +579,16 @@ double pas_arctan2(double y, double x) {
  * Global Variables for argc/argv
  * ============================================================================ */
 
-int __argc = 0;
-char** __argv = NULL;
+int pas_strlen(const char* s) { return strlen(s); }
 
-void pas_init_runtime(int argc, char** argv) {
-    __argc = argc;
-    __argv = argv;
+char* pas_strcopy(const char* s, int index, int count) {
+    char* result = malloc(count + 1);
+    strncpy(result, s + index - 1, count);
+    result[count] = '\0';
+    return result;
+}
+
+int pas_strpos(const char* sub, const char* s) {
+    char* p = strstr(s, sub);
+    return p ? (p - s) + 1 : 0;
 }

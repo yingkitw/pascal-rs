@@ -8,7 +8,7 @@
 
 ## 🎯 Overview
 
-The MiniPAS standard library provides a comprehensive set of Pascal units that implement essential functionality for Pascal programs. The library is designed to be compatible with Free Pascal Compiler (FPC) and Delphi conventions while being optimized for the MiniPAS compiler.
+The poscal-rs standard library provides a comprehensive set of Pascal units that implement essential functionality for Pascal programs. The library is designed to be compatible with Free Pascal Compiler (FPC) and Delphi conventions while being optimized for the poscal-rs compiler.
 
 ---
 
@@ -478,14 +478,14 @@ Most features are also compatible with Delphi:
 
 ## 🎉 Conclusion
 
-The MiniPAS standard library implementation is **60% complete** with all core units implemented. The library provides:
+The poscal-rs standard library implementation is **60% complete** with all core units implemented. The library provides:
 
 - ✅ **180+ functions** covering I/O, strings, math, files, and more
 - ✅ **7 classes** for object-oriented programming
 - ✅ **1,500+ lines** of well-documented Pascal code
 - ✅ **FPC/Delphi compatibility** for easy migration
 
-**Next milestone**: Complete runtime integration to make the standard library fully functional with the MiniPAS compiler.
+**Next milestone**: Complete runtime integration to make the standard library fully functional with the poscal-rs compiler.
 
 ---
 

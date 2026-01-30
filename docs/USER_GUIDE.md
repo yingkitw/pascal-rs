@@ -1,6 +1,6 @@
-# MiniPAS User Guide
+# pascal-rs User Guide
 
-Welcome to MiniPAS, a modern Pascal compiler written in Rust!
+Welcome to pascal-rs, a modern Pascal compiler written in Rust!
 
 ## Table of Contents
 
@@ -23,17 +23,17 @@ Welcome to MiniPAS, a modern Pascal compiler written in Rust!
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/minipas.git
-cd minipas
+git clone https://github.com/yourusername/pascal-rs.git
+cd pascal-rs
 
 # Build the project
 cargo build --release
 
 # Install the compiler
-cargo install --path crates/minipas-cli
+cargo install --path crates/pascal-cli
 
 # Verify installation
-minipas --version
+pascal --version
 ```
 
 ## Quick Start
@@ -52,7 +52,7 @@ end.
 Compile it:
 
 ```bash
-minipas compile hello.pas
+pascal compile hello.pas
 ```
 
 ### Your First Unit
@@ -85,7 +85,7 @@ end.
 Compile it:
 
 ```bash
-minipas compile mathutils.pas -v
+pascal compile mathutils.pas -v
 ```
 
 Output:
@@ -168,10 +168,10 @@ end.
 
 ```bash
 # Compile a unit
-minipas compile MyUnit.pas
+pascal compile MyUnit.pas
 
 # Compile a program
-minipas compile MyProgram.pas
+pascal compile MyProgram.pas
 ```
 
 ### Compilation Options
@@ -179,7 +179,7 @@ minipas compile MyProgram.pas
 #### Output Directory
 
 ```bash
-minipas compile MyUnit.pas -o ./build
+pascal compile MyUnit.pas -o ./build
 ```
 
 #### Search Paths
@@ -187,7 +187,7 @@ minipas compile MyUnit.pas -o ./build
 Add directories to search for units:
 
 ```bash
-minipas compile MyProgram.pas -I /usr/lib/pascal -I ./lib
+pascal compile MyProgram.pas -I /usr/lib/pascal -I ./lib
 ```
 
 #### Optimization
@@ -196,10 +196,10 @@ Set optimization level (0-3):
 
 ```bash
 # No optimization
-minipas compile MyUnit.pas -O0
+pascal compile MyUnit.pas -O0
 
 # Maximum optimization
-minipas compile MyUnit.pas -O3
+pascal compile MyUnit.pas -O3
 ```
 
 #### Debug Information
@@ -207,7 +207,7 @@ minipas compile MyUnit.pas -O3
 Include debug information:
 
 ```bash
-minipas compile MyUnit.pas -d
+pascal compile MyUnit.pas -d
 ```
 
 #### Verbose Output
@@ -215,7 +215,7 @@ minipas compile MyUnit.pas -d
 Show detailed compilation steps:
 
 ```bash
-minipas compile MyUnit.pas -v
+pascal compile MyUnit.pas -v
 ```
 
 Output:
@@ -241,7 +241,7 @@ Compilation order:
 #### Don't Generate PPU Files
 
 ```bash
-minipas compile MyUnit.pas --no-ppu
+pascal compile MyUnit.pas --no-ppu
 ```
 
 #### Don't Use PPU Cache
@@ -249,13 +249,13 @@ minipas compile MyUnit.pas --no-ppu
 Force recompilation from source:
 
 ```bash
-minipas compile MyUnit.pas --no-cache
+pascal compile MyUnit.pas --no-cache
 ```
 
 ### Complete Example
 
 ```bash
-minipas compile MyProgram.pas \
+pascal compile MyProgram.pas \
   -o ./build \
   -I /usr/lib/pascal \
   -I ./lib \
@@ -276,7 +276,7 @@ PPU (Precompiled Pascal Unit) files are binary files that store compiled unit in
 
 ### PPU File Format
 
-- **Magic Number**: "MPU\0" (MiniPas Unit)
+- **Magic Number**: "MPU\0" (pascal-rs Unit)
 - **Version**: Format version number
 - **Checksums**: Interface, implementation, and unit CRCs
 - **Data**: Serialized AST using bincode
@@ -286,7 +286,7 @@ PPU (Precompiled Pascal Unit) files are binary files that store compiled unit in
 View information about a PPU file:
 
 ```bash
-minipas info myunit.ppu
+pascal info myunit.ppu
 ```
 
 Output:
@@ -329,10 +329,10 @@ Remove all PPU files from a directory:
 
 ```bash
 # Clean current directory
-minipas clean
+pascal clean
 
 # Clean specific directory
-minipas clean ./build
+pascal clean ./build
 ```
 
 Output:
@@ -365,7 +365,7 @@ myproject/
 Compile with:
 
 ```bash
-minipas compile src/MyProgram.pas \
+pascal compile src/MyProgram.pas \
   -o build \
   -I src/units \
   -I lib
@@ -389,12 +389,12 @@ mkdir -p "$OUTPUT_DIR"
 
 # Compile units
 echo "Compiling units..."
-minipas compile src/units/MathUtils.pas -o "$OUTPUT_DIR" $SEARCH_PATHS $OPTIMIZATION $DEBUG
-minipas compile src/units/StringUtils.pas -o "$OUTPUT_DIR" $SEARCH_PATHS $OPTIMIZATION $DEBUG
+pascal compile src/units/MathUtils.pas -o "$OUTPUT_DIR" $SEARCH_PATHS $OPTIMIZATION $DEBUG
+pascal compile src/units/StringUtils.pas -o "$OUTPUT_DIR" $SEARCH_PATHS $OPTIMIZATION $DEBUG
 
 # Compile program
 echo "Compiling program..."
-minipas compile src/MyProgram.pas -o "$OUTPUT_DIR" $SEARCH_PATHS $OPTIMIZATION $DEBUG
+pascal compile src/MyProgram.pas -o "$OUTPUT_DIR" $SEARCH_PATHS $OPTIMIZATION $DEBUG
 
 echo "Build complete!"
 ```
@@ -412,10 +412,10 @@ all: $(OUTPUT_DIR)/myprogram
 
 $(OUTPUT_DIR)/myprogram: src/MyProgram.pas src/units/*.pas
 	@mkdir -p $(OUTPUT_DIR)
-	minipas compile $< -o $(OUTPUT_DIR) $(SEARCH_PATHS) $(OPTIONS) -v
+	pascal compile $< -o $(OUTPUT_DIR) $(SEARCH_PATHS) $(OPTIONS) -v
 
 clean:
-	minipas clean $(OUTPUT_DIR)
+	pascal clean $(OUTPUT_DIR)
 	rm -rf $(OUTPUT_DIR)
 ```
 
@@ -429,7 +429,7 @@ clean:
 
 **Solution**: Add the unit's directory to search paths:
 ```bash
-minipas compile MyProgram.pas -I ./path/to/units
+pascal compile MyProgram.pas -I ./path/to/units
 ```
 
 #### Circular Dependency
@@ -445,7 +445,7 @@ minipas compile MyProgram.pas -I ./path/to/units
 **Solution**: The PPU file is corrupted. Delete it and recompile:
 ```bash
 rm myunit.ppu
-minipas compile MyUnit.pas
+pascal compile MyUnit.pas
 ```
 
 #### File Not Found
@@ -461,12 +461,12 @@ ls -la MyUnit.pas
 
 ```bash
 # General help
-minipas --help
+pascal --help
 
 # Command-specific help
-minipas compile --help
-minipas info --help
-minipas clean --help
+pascal compile --help
+pascal info --help
+pascal clean --help
 ```
 
 ### Verbose Mode
@@ -474,7 +474,7 @@ minipas clean --help
 Use verbose mode to see detailed compilation steps:
 
 ```bash
-minipas compile MyUnit.pas -v
+pascal compile MyUnit.pas -v
 ```
 
 This shows:
@@ -489,7 +489,7 @@ This shows:
 - Read the [API Documentation](API.md) for library usage
 - Check the [examples/](../examples/) directory for more examples
 - See [ARCHITECTURE.md](../ARCHITECTURE.md) for compiler internals
-- Visit the [GitHub repository](https://github.com/yourusername/minipas) for updates
+- Visit the [GitHub repository](https://github.com/yourusername/poscal-rs) for updates
 
 ## Support
 
@@ -497,4 +497,4 @@ This shows:
 - **Discussions**: Ask questions in GitHub Discussions
 - **Documentation**: Check the docs/ directory
 
-Happy coding with MiniPAS! 🎉
+Happy coding with pascal-rs! 🎉

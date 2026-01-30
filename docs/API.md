@@ -1,12 +1,12 @@
-# MiniPAS API Documentation
+# pascal-rs API Documentation
 
-This document provides an overview of the MiniPAS compiler API and its crates.
+This document provides an overview of pascal-rs compiler API and its crates.
 
 ## Crates
 
 ### Core Compilation Pipeline
 
-#### `minipas-driver` - Compilation Driver
+#### `pascal-driver` - Compilation Driver
 The main compilation orchestrator that manages the entire compilation process.
 
 **Key Types:**
@@ -17,14 +17,14 @@ The main compilation orchestrator that manages the entire compilation process.
 
 **Example:**
 ```rust
-use minipas_driver::{Compiler, CompileOptions};
+use pascal_driver::{Compiler, CompileOptions};
 
 let options = CompileOptions::default();
 let mut compiler = Compiler::new(options);
 let result = compiler.compile_file("MyUnit.pas")?;
 ```
 
-#### `minipas-module` - Module System
+#### `pascal-module` - Module System
 Implements Pascal's unit system with PPU file support.
 
 **Key Types:**
@@ -35,13 +35,13 @@ Implements Pascal's unit system with PPU file support.
 
 **Example:**
 ```rust
-use minipas_module::{ModuleLoader, PpuFile};
+use pascal_module::{ModuleLoader, PpuFile};
 
 let mut loader = ModuleLoader::new();
 let unit = loader.load_from_ppu("MyUnit")?;
 ```
 
-#### `minipas-parser` - Parser
+#### `pascal-parser` - Parser
 Parses Pascal source code into an Abstract Syntax Tree.
 
 **Key Types:**
@@ -50,14 +50,14 @@ Parses Pascal source code into an Abstract Syntax Tree.
 
 **Example:**
 ```rust
-use minipas_parser::Parser;
+use pascal_parser::Parser;
 
 let source = "unit MyUnit; interface implementation end.";
 let mut parser = Parser::new(source);
 let unit = parser.parse_unit()?;
 ```
 
-#### `minipas-ast` - Abstract Syntax Tree
+#### `pascal-ast` - Abstract Syntax Tree
 Defines all AST node types for Pascal programs.
 
 **Key Types:**
@@ -67,7 +67,7 @@ Defines all AST node types for Pascal programs.
 - `Stmt` - Statements
 - `Type` - Type definitions
 
-#### `minipas-lexer` - Lexer
+#### `pascal-lexer` - Lexer
 Tokenizes Pascal source code.
 
 **Key Types:**
@@ -76,7 +76,7 @@ Tokenizes Pascal source code.
 
 **Example:**
 ```rust
-use minipas_lexer::Lexer;
+use pascal_lexer::Lexer;
 
 let source = "program Hello; begin end.";
 let mut lexer = Lexer::new(source);
@@ -85,7 +85,7 @@ for token in lexer {
 }
 ```
 
-#### `minipas-codegen` - Code Generator
+#### `pascal-codegen` - Code Generator
 Generates target code from AST.
 
 **Key Types:**
@@ -93,7 +93,7 @@ Generates target code from AST.
 
 ### Command-Line Interface
 
-#### `minipas-cli` - CLI Application
+#### `pascal-cli` - CLI Application
 User-facing command-line interface.
 
 **Commands:**
@@ -110,48 +110,48 @@ Generate the full API documentation:
 cargo doc --no-deps --workspace --open
 
 # Generate documentation for a specific crate
-cargo doc --no-deps -p minipas-driver --open
+cargo doc --no-deps -p pascal-driver --open
 ```
 
 ## Module Relationships
 
 ```
-minipas-cli
+pascal-cli
     ↓
-minipas-driver
+pascal-driver
     ↓
-    ├── minipas-parser → minipas-ast
+    ├── pascal-parser → pascal-ast
     │       ↓
-    │   minipas-lexer
+    │   pascal-lexer
     │
-    └── minipas-module → minipas-ast
+    └── pascal-module → pascal-ast
             ↓
-        minipas-codegen
+        pascal-codegen
 ```
 
 ## Key Concepts
 
 ### Compilation Flow
 
-1. **Lexical Analysis** (`minipas-lexer`)
+1. **Lexical Analysis** (`pascal-lexer`)
    - Tokenize source code
    - Handle comments and whitespace
 
-2. **Parsing** (`minipas-parser`)
+2. **Parsing** (`pascal-parser`)
    - Build Abstract Syntax Tree
    - Validate syntax
 
-3. **Module Management** (`minipas-module`)
+3. **Module Management** (`pascal-module`)
    - Resolve dependencies
    - Load/save PPU files
    - Track compilation order
 
-4. **Compilation** (`minipas-driver`)
+4. **Compilation** (`pascal-driver`)
    - Orchestrate compilation
    - Handle errors
    - Generate output
 
-5. **Code Generation** (`minipas-codegen`)
+5. **Code Generation** (`pascal-codegen`)
    - Generate target code
    - Optimize output
 
@@ -189,7 +189,7 @@ cargo test --workspace
 Run tests for a specific crate:
 
 ```bash
-cargo test -p minipas-driver
+cargo test -p pascal-driver
 ```
 
 ## Contributing

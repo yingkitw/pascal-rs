@@ -2,7 +2,7 @@
 
 ## Overview
 
-The minipas module system implements Pascal's unit system, providing support for modular programming with interface/implementation separation and dependency management.
+The poscal-rs module system implements Pascal's unit system, providing support for modular programming with interface/implementation separation and dependency management.
 
 ## Status
 
@@ -18,7 +18,7 @@ The minipas module system implements Pascal's unit system, providing support for
 
 ### Core Components
 
-The module system is implemented in the `minipas-module` crate with the following components:
+The module system is implemented in the `poscal-rs-module` crate with the following components:
 
 1. **Module** - Represents a compiled Pascal unit
 2. **ModuleManager** - Manages collections of modules and their dependencies
@@ -27,7 +27,7 @@ The module system is implemented in the `minipas-module` crate with the followin
 
 ### Parser Integration
 
-The `minipas-parser` crate now includes:
+The `poscal-rs-parser` crate now includes:
 - `parse_unit()` - Parses complete Pascal unit files
 - `parse_interface_section()` - Parses interface declarations
 - `parse_implementation_section()` - Parses implementation code
@@ -136,8 +136,8 @@ let symbol = resolver.resolve_symbol(
 ## Usage Example
 
 ```rust
-use minipas_module::{Module, ModuleManager, ModuleLoader};
-use minipas_ast::Unit;
+use poscal-rs_module::{Module, ModuleManager, ModuleLoader};
+use poscal-rs_ast::Unit;
 
 // Create module manager
 let mut manager = ModuleManager::new();
@@ -258,7 +258,7 @@ pub enum ModuleError {
 The module system includes comprehensive unit tests:
 
 ```bash
-cargo test -p minipas-module
+cargo test -p poscal-rs-module
 ```
 
 Test coverage includes:

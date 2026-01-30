@@ -1,8 +1,8 @@
-# Module System Migration from FPC to minipas
+# Module System Migration from FPC to poscal-rs
 
 ## Overview
 
-This document describes the migration of Free Pascal Compiler's (FPC) module system to the minipas Rust implementation.
+This document describes the migration of Free Pascal Compiler's (FPC) module system to the poscal-rs Rust implementation.
 
 ## Date
 
@@ -10,7 +10,7 @@ October 16, 2025
 
 ## Objectives
 
-Implement Pascal's unit system in minipas to support:
+Implement Pascal's unit system in poscal-rs to support:
 - Unit interface/implementation separation
 - `uses` clause dependency management
 - Modular compilation
@@ -18,9 +18,9 @@ Implement Pascal's unit system in minipas to support:
 
 ## Implementation
 
-### New Crate: `minipas-module`
+### New Crate: `poscal-rs-module`
 
-Created a new crate `minipas-module` with the following components:
+Created a new crate `poscal-rs-module` with the following components:
 
 #### 1. Core Data Structures
 
@@ -91,7 +91,7 @@ Analyzed the following FPC source files:
 ## Code Structure
 
 ```
-crates/minipas-module/
+crates/poscal-rs-module/
 ├── Cargo.toml
 ├── src/
 │   ├── lib.rs          # Module, ModuleManager
@@ -140,7 +140,7 @@ Implemented comprehensive unit tests covering:
 
 Run tests with:
 ```bash
-cargo test -p minipas-module
+cargo test -p poscal-rs-module
 ```
 
 ## Documentation
@@ -174,7 +174,7 @@ The compiler will use the module system to:
 ## Example Usage
 
 ```rust
-use minipas_module::{Module, ModuleManager, ModuleLoader};
+use poscal-rs_module::{Module, ModuleManager, ModuleLoader};
 
 // Create module manager
 let mut manager = ModuleManager::new();
@@ -204,7 +204,7 @@ for module_name in order {
 
 ## Comparison with FPC
 
-| Feature | FPC | minipas | Status |
+| Feature | FPC | poscal-rs | Status |
 |---------|-----|---------|--------|
 | Unit structure | ✅ | ✅ | Complete |
 | Interface/Implementation | ✅ | ✅ | Complete |
@@ -228,7 +228,7 @@ for module_name in order {
 ## Challenges Encountered
 
 1. **Existing Compilation Errors**: Found pre-existing errors in enhanced_lexer.rs
-   - Fixed: Added serde dependency to minipas-ast
+   - Fixed: Added serde dependency to poscal-rs-ast
    - Fixed: Renamed `Self` token to `SelfKeyword` to avoid keyword conflict
 
 2. **Trait Design**: Designed traits for testability and modularity
@@ -252,6 +252,6 @@ for module_name in order {
 
 ## Conclusion
 
-Successfully migrated the core FPC module system to Rust, providing a solid foundation for Pascal unit support in minipas. The implementation follows FPC's architecture while leveraging Rust's safety and modern features.
+Successfully migrated the core FPC module system to Rust, providing a solid foundation for Pascal unit support in poscal-rs. The implementation follows FPC's architecture while leveraging Rust's safety and modern features.
 
-The module system is ready for integration with the parser and compiler pipeline, enabling true modular Pascal programming in minipas.
+The module system is ready for integration with the parser and compiler pipeline, enabling true modular Pascal programming in poscal-rs.

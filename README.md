@@ -1,6 +1,6 @@
-# MiniPAS - A Production-Ready Optimizing Pascal Compiler
+# pascal-rs - A Production-Ready Optimizing Pascal Compiler
 
-MiniPAS is a modern, full-featured Pascal compiler written in Rust with advanced optimizations, register allocation, type inference, and SIMD support. It features a complete compilation pipeline with automatic dependency resolution, precompiled unit (PPU) files, and a user-friendly command-line interface.
+pascal-rs is a modern, full-featured Pascal compiler written in Rust with advanced optimizations, register allocation, type inference, and SIMD support. It features a complete compilation pipeline with automatic dependency resolution, precompiled unit (PPU) files, and a user-friendly command-line interface.
 
 **Status**: ✅ **Production Ready** - Milestone 3 Complete (87 tests passing)
 
@@ -77,10 +77,10 @@ This project includes a comprehensive migration of Free Pascal Compiler (FPC) co
 
 ### Enhanced Components
 
-- **Enhanced Lexer** (`crates/minipas-lexer/src/enhanced_lexer.rs`): Complete Pascal token definitions from FPC
-- **Enhanced Parser** (`crates/minipas-parser/src/enhanced_parser.rs`): Full Pascal language parsing capabilities
-- **Enhanced AST** (`crates/minipas-ast/src/enhanced_ast.rs`): Support for all Pascal language features
-- **Enhanced Code Generator** (`crates/minipas-codegen/src/enhanced_codegen.rs`): Multi-architecture code generation
+- **Enhanced Lexer** (`crates/pascal-lexer/src/enhanced_lexer.rs`): Complete Pascal token definitions from FPC
+- **Enhanced Parser** (`crates/pascal-parser/src/enhanced_parser.rs`): Full Pascal language parsing capabilities
+- **Enhanced AST** (`crates/pascal-ast/src/enhanced_ast.rs`): Support for all Pascal language features
+- **Enhanced Code Generator** (`crates/pascal-codegen/src/enhanced_codegen.rs`): Multi-architecture code generation
 
 ### Supported Features
 
@@ -118,8 +118,8 @@ cargo test --test integration_test  # Integration tests
 ```
 
 The binary will be available at:
-- `target/debug/minipas` (debug build)
-- `target/release/minipas` (optimized build)
+- `target/debug/pascal` (debug build)
+- `target/release/pascal` (optimized build)
 
 ## 🎯 Usage
 
@@ -128,57 +128,57 @@ The binary will be available at:
 ```bash
 # Build and install the compiler
 cargo build --release
-cargo install --path crates/minipas-cli
+cargo install --path crates/pascal-cli
 ```
 
 ### Basic Compilation
 
 ```bash
 # Compile a Pascal unit or program
-minipas compile MyUnit.pas
+pascal compile MyUnit.pas
 
 # Compile with optimization
-minipas compile MyUnit.pas -O2
+pascal compile MyUnit.pas -O2
 
 # Compile with debug information
-minipas compile MyUnit.pas -d
+pascal compile MyUnit.pas -d
 
 # Specify output directory
-minipas compile MyUnit.pas -o ./build
+pascal compile MyUnit.pas -o ./build
 
 # Add search paths for units
-minipas compile MyProgram.pas -I /usr/lib/pascal -I ./lib
+pascal compile MyProgram.pas -I /usr/lib/pascal -I ./lib
 
 # Verbose output
-minipas compile MyUnit.pas -v
+pascal compile MyUnit.pas -v
 ```
 
 ### PPU File Inspection
 
 ```bash
 # Show information about a compiled unit
-minipas info myunit.ppu
+pascal info myunit.ppu
 ```
 
 ### Clean Build Artifacts
 
 ```bash
 # Remove PPU files from current directory
-minipas clean
+pascal clean
 
 # Clean specific directory
-minipas clean ./build
+pascal clean ./build
 ```
 
 ### Command Line Options
 
 ```bash
 # Show help
-minipas --help
-minipas compile --help
+pascal --help
+pascal compile --help
 
 # Compile with all options
-minipas compile MyUnit.pas \
+pascal compile MyUnit.pas \
   -o ./build \
   -I ./lib \
   -O2 \
@@ -190,15 +190,15 @@ minipas compile MyUnit.pas \
 ### Project Structure
 
 ```
-minipas/
+pascal-rs/
 ├── crates/
-│   ├── minipas-lexer/     # Lexical analysis crate
-│   ├── minipas-ast/       # Abstract Syntax Tree definitions
-│   ├── minipas-parser/    # Syntax analysis crate
-│   ├── minipas-codegen/   # Code generation crate
-│   ├── minipas-module/    # Module system (units, PPU files)
-│   ├── minipas-driver/    # Compilation driver
-│   └── minipas-cli/       # Command-line interface (binary)
+│   ├── pascal-lexer/     # Lexical analysis crate
+│   ├── pascal-ast/       # Abstract Syntax Tree definitions
+│   ├── pascal-parser/    # Syntax analysis crate
+│   ├── pascal-codegen/   # Code generation crate
+│   ├── pascal-module/    # Module system (units, PPU files)
+│   ├── pascal-driver/    # Compilation driver
+│   └── pascal-cli/       # Command-line interface (binary)
 ├── examples/
 │   └── *.pas             # Example Pascal programs
 ├── tests/                # Test suites
@@ -257,7 +257,7 @@ end.
 
 Compile the unit:
 ```bash
-minipas compile MathUtils.pas -v
+pascal compile MathUtils.pas -v
 # Output: Success: Compiled module: MathUtils
 #         PPU file: mathutils.ppu
 ```
@@ -282,7 +282,7 @@ end.
 
 Compile the program:
 ```bash
-minipas compile Calculator.pas -v
+pascal compile Calculator.pas -v
 # Automatically compiles MathUtils if needed
 ```
 
@@ -384,7 +384,7 @@ cargo test parser                   # Parser tests
 cargo test codegen                  # Codegen tests
 ```
 
-**Test Results**: ✅ All tests passing (13/13)
+**Test Results**: ✅ All tests passing (87/87)
 
 **Complex Examples**: ✅ All 7 complex examples compile successfully
 
@@ -392,13 +392,13 @@ cargo test codegen                  # Codegen tests
 
 ### Modular Design
 
-The MiniPAS compiler is built using a modular architecture with separate crates for each major component:
+The pascal-rs compiler is built using a modular architecture with separate crates for each major component:
 
-- **`minipas-lexer`**: Lexical analysis and tokenization
-- **`minipas-ast`**: Abstract Syntax Tree definitions and types
-- **`minipas-parser`**: Syntax analysis and parsing
-- **`minipas-codegen`**: Code generation and assembly output
-- **`minipas-cli`**: Command-line interface and user interaction
+- **`pascal-lexer`**: Lexical analysis and tokenization
+- **`pascal-ast`**: Abstract Syntax Tree definitions and types
+- **`pascal-parser`**: Syntax analysis and parsing
+- **`pascal-codegen`**: Code generation and assembly output
+- **`pascal-cli`**: Command-line interface and user interaction
 
 This modular approach provides several benefits:
 - **Separation of Concerns**: Each crate has a single responsibility
@@ -413,11 +413,11 @@ This modular approach provides several benefits:
 
 ```mermaid
 graph TD
-    A[Pascal Source Code<br/>.pas file] --> B[Lexical Analysis<br/>minipas-lexer]
+    A[Pascal Source Code<br/>.pas file] --> B[Lexical Analysis<br/>pascal-lexer]
     B --> C[Token Stream<br/>Keywords, Identifiers, Literals, Operators]
-    C --> D[Syntax Analysis<br/>minipas-parser]
-    D --> E[Abstract Syntax Tree<br/>minipas-ast]
-    E --> F[Code Generation<br/>minipas-codegen]
+    C --> D[Syntax Analysis<br/>pascal-parser]
+    D --> E[Abstract Syntax Tree<br/>pascal-ast]
+    E --> F[Code Generation<br/>pascal-codegen]
     F --> G[x86-64 Assembly<br/>.s file]
     
     B --> H[Error Handling<br/>LexerError]
@@ -437,23 +437,23 @@ graph TD
 graph TB
     subgraph "Input Layer"
         A[Pascal Source Code]
-        B[Command Line Interface<br/>minipas-cli]
+        B[Command Line Interface<br/>pascal-cli]
     end
     
     subgraph "Lexical Analysis Layer"
-        C[Lexer<br/>minipas-lexer]
-        D[Token Definitions<br/>minipas-lexer/tokens.rs]
+        C[Lexer<br/>pascal-lexer]
+        D[Token Definitions<br/>pascal-lexer/tokens.rs]
         E[Token Stream]
     end
     
     subgraph "Syntax Analysis Layer"
-        F[Parser<br/>minipas-parser]
+        F[Parser<br/>pascal-parser]
         G[Grammar Rules]
         H[AST Builder]
     end
     
     subgraph "AST Layer"
-        I[Type Definitions<br/>minipas-ast]
+        I[Type Definitions<br/>pascal-ast]
         J[Expressions<br/>Literals, BinaryOp, UnaryOp]
         K[Statements<br/>Assignment, If, While, For]
         L[Types<br/>Integer, Real, Boolean, String, Array, Record]
@@ -466,7 +466,7 @@ graph TB
     end
     
     subgraph "Code Generation Layer"
-        S[Code Generator<br/>minipas-codegen]
+        S[Code Generator<br/>pascal-codegen]
         T[Variable Management<br/>Stack-based allocation]
         U[Register Allocation<br/>Optimized usage]
         V[Assembly Output<br/>x86-64 Intel syntax]
@@ -574,7 +574,7 @@ graph LR
 
 ### Key Components
 
-- **AST** (`crates/minipas-ast/`): Complete type definitions for Pascal language constructs
+- **AST** (`crates/pascal-ast/`): Complete type definitions for Pascal language constructs
 - **Error Handling**: Comprehensive error reporting throughout the pipeline
 - **Memory Management**: Stack-based variable allocation
 - **Type System**: Support for all major Pascal data types
@@ -624,3 +624,11 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - [ ] Cross-platform support
 - [ ] Real number support improvements
 - [ ] String literal handling enhancements
+
+## Community
+
+Please read our [Code of Conduct](CODE_OF_CONDUCT.md) and [Contributing Guidelines](CONTRIBUTING.md).
+
+## RAD GUI Demo
+
+Run `cargo run --bin pascal-rad` to launch a simple native Cocoa GUI window with a button on macOS."

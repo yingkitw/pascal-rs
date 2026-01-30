@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../../../Downloads/FPCSource-main"
+		},
+		{
+			"path": "../../../Downloads/Lazarus-main"
 		}
 	],
 	"settings": {}
