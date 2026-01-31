@@ -874,7 +874,8 @@ graph LR
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - Detailed project architecture and design
 - [TODO.md](./TODO.md) - Development roadmap and current tasks
-- [MODULE_SYSTEM.md](docs/MODULE_SYSTEM.md) - Module system documentation
+- [THREADING.md](docs/THREADING.md) - Multi-threading and parallel compilation
+- [ACKNOWLEDGMENTS.md](docs/ACKNOWLEDGMENTS.md) - Learning from the Pascal compiler ecosystem
 - [API Documentation](docs/index.html) - Complete API reference
 - [Language Reference](docs/language.html) - Supported Pascal features
 - [Examples](examples/) - Sample Pascal programs
