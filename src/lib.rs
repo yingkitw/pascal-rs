@@ -10,6 +10,8 @@ pub mod enhanced_tokens;
 pub mod error;
 pub mod lexer;
 pub mod loader;
+#[cfg(feature = "mcp")]
+pub mod mcp_server;
 // pub mod optimizer;
 pub mod parallel;
 pub mod parser;
@@ -32,6 +34,8 @@ pub use ast::{
 pub use error::{CompileOptions, CompileResult, CompilerError, ParseError};
 pub use lexer::Lexer;
 pub use loader::ModuleLoader;
+#[cfg(feature = "mcp")]
+pub use mcp_server::{McpServer, McpServerBuilder, CompileRequest, CompileResponse, StatusRequest, StatusResponse};
 pub use parallel::{ParallelConfig, ParallelCompiler, ProgressTracker};
 pub use resolver::{ModuleResolver, SymbolTable, SymbolInfo, SymbolKind};
 // pub use symbol_table::SymbolTable as LocalSymbolTable;

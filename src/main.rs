@@ -2,6 +2,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use pascal::ppu::PpuFile;
+use pascal::{ParallelConfig, ParallelCompiler};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -52,6 +53,14 @@ enum Commands {
         /// Verbose output
         #[arg(short, long)]
         verbose: bool,
+
+        /// Enable parallel compilation
+        #[arg(short = 'j', long)]
+        parallel: bool,
+
+        /// Number of threads for parallel compilation (0 = auto)
+        #[arg(long, default_value = "0")]
+        threads: usize,
     },
 
     /// Show information about a compiled unit
@@ -82,6 +91,8 @@ fn main() -> Result<()> {
             no_cache,
             asm,
             verbose,
+            parallel,
+            threads,
         } => compile_file(
             input,
             output,
@@ -92,6 +103,8 @@ fn main() -> Result<()> {
             !no_cache,
             asm,
             verbose,
+            parallel,
+            threads,
         ),
         Commands::Info { ppu_file } => show_ppu_info(ppu_file),
         Commands::Clean { directory } => clean_directory(directory),
@@ -108,6 +121,8 @@ fn compile_file(
     _use_ppu: bool,
     _generate_asm: bool,
     verbose: bool,
+    parallel: bool,
+    threads: usize,
 ) -> Result<()> {
     // Validate input file
     if !input.exists() {
@@ -123,6 +138,31 @@ fn compile_file(
         println!("{} {}", "Compiling:".green().bold(), input.display());
         println!("{}", "Configuration:".cyan().bold());
         println!("  Output directory: {}", output.display());
+        if parallel {
+            println!("  Parallel compilation: {}", "enabled".green());
+            if threads > 0 {
+                println!("  Threads: {}", threads);
+            } else {
+                println!("  Threads: {} (auto-detected)", num_cpus::get());
+            }
+        }
+    }
+
+    // Initialize parallel compiler if enabled
+    if parallel {
+        let config = ParallelConfig::new()
+            .with_threads(threads)
+            .with_parallel_modules(true)
+            .with_parallel_optimization(true);
+        
+        if let Err(e) = config.init_thread_pool() {
+            eprintln!("{} Failed to initialize thread pool: {}", "Error:".red().bold(), e);
+            std::process::exit(1);
+        }
+        
+        if verbose {
+            println!("{} Thread pool initialized", "Info:".cyan().bold());
+        }
     }
 
     // TODO: Implement full compilation pipeline

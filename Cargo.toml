@@ -5,13 +5,17 @@ edition = "2024"
 authors = ["Ying Kit WONG"]
 license = "Apache-2.0"
 repository = "https://github.com/yingkitw/pascal-rs"
-keywords = ["compiler", "pascal", "education"]
+keywords = ["compiler", "pascal", "education", "mcp"]
 categories = ["command-line-utilities", "compilers"]
-description = "A production-ready optimizing Pascal compiler"
+description = "A production-ready optimizing Pascal compiler with MCP support"
 
 [[bin]]
 name = "pascal"
 path = "src/main.rs"
+
+[[example]]
+name = "mcp_parallel"
+required-features = ["mcp"]
 
 [dependencies]
 # Core dependencies
@@ -22,9 +26,11 @@ logos = "0.15"
 serde = { version = "1.0", features = ["derive"] }
 bincode = "1.3"
 rayon = "1.10"
+rmcp = "0.14"
 
 # CLI output
 colored = "2.1"
+num_cpus = "1.16"
 
 # LSP support (optional)
 tower-lsp = { version = "0.20", optional = true }
@@ -50,6 +56,7 @@ insta = "1.41"
 
 [features]
 default = []
+mcp = []  # MCP server for AI integration (optional)
 lsp = ["tower-lsp", "tokio", "serde_json"]
 gui = ["cocoa", "objc"]
 debug = ["gimli"]
