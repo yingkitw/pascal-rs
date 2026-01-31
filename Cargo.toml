@@ -7,7 +7,7 @@ license = "Apache-2.0"
 repository = "https://github.com/yingkitw/pascal-rs"
 keywords = ["compiler", "pascal", "education", "mcp"]
 categories = ["command-line-utilities", "compilers"]
-description = "A production-ready optimizing Pascal compiler with MCP support"
+description = "A Pascal compiler in rust implementation with MCP support"
 
 [[bin]]
 name = "pascal"
