@@ -8,6 +8,8 @@ repository = "https://github.com/yingkitw/pascal-rs"
 keywords = ["compiler", "pascal", "education", "mcp"]
 categories = ["command-line-utilities", "compilers"]
 description = "A Pascal compiler in rust implementation with MCP support"
+documentation = "https://docs.rs/pascal"
+homepage = "https://github.com/yingkitw/pascal-rs"
 
 [[bin]]
 name = "pascal"
