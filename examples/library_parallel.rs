@@ -180,9 +180,9 @@ fn create_mock_module(name: &str) -> ModuleResult<Module> {
             uses: vec![],
             interface: pascal::ast::UnitInterface {
                 uses: vec![],
-                types: std::collections::HashMap::new(),
-                constants: std::collections::HashMap::new(),
-                variables: std::collections::HashMap::new(),
+                types: vec![],
+                constants: vec![],
+                variables: vec![],
                 procedures: vec![],
                 functions: vec![],
                 classes: vec![],

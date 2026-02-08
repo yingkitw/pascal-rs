@@ -260,11 +260,12 @@ pub enum Token {
     })]
     StringLiteral(String),
 
-    #[regex(r"'([^'\\]|\\.)'", |lex| {
+    #[regex(r"'[^']*'", |lex| {
         let s = lex.slice();
-        // Remove quotes and get the character
-        s.chars().nth(1).unwrap_or('\0')
+        s[1..s.len()-1].to_string()
     })]
+    PascalStringLiteral(String),
+
     CharLiteral(char),
 
     // Identifiers

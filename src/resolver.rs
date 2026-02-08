@@ -83,11 +83,11 @@ impl ModuleResolver {
         };
 
         // Add types from interface
-        for (type_name, _type_def) in &module.unit.interface.types {
+        for type_decl in &module.unit.interface.types {
             table.types.insert(
-                type_name.clone(),
+                type_decl.name.clone(),
                 SymbolInfo {
-                    name: type_name.clone(),
+                    name: type_decl.name.clone(),
                     module: module.name.clone(),
                     is_public: true,
                     kind: SymbolKind::Type,
@@ -96,11 +96,11 @@ impl ModuleResolver {
         }
 
         // Add constants from interface
-        for (const_name, _const_value) in &module.unit.interface.constants {
+        for const_decl in &module.unit.interface.constants {
             table.constants.insert(
-                const_name.clone(),
+                const_decl.name.clone(),
                 SymbolInfo {
-                    name: const_name.clone(),
+                    name: const_decl.name.clone(),
                     module: module.name.clone(),
                     is_public: true,
                     kind: SymbolKind::Constant,
@@ -109,11 +109,11 @@ impl ModuleResolver {
         }
 
         // Add variables from interface
-        for (var_name, _var_type) in &module.unit.interface.variables {
+        for var_decl in &module.unit.interface.variables {
             table.variables.insert(
-                var_name.clone(),
+                var_decl.name.clone(),
                 SymbolInfo {
-                    name: var_name.clone(),
+                    name: var_decl.name.clone(),
                     module: module.name.clone(),
                     is_public: true,
                     kind: SymbolKind::Variable,

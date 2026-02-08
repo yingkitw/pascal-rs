@@ -2,7 +2,7 @@
 //!
 //! Provides constant folding, dead code elimination, and peephole optimization
 
-use crate::ast::{BinaryOp, Expr, Literal, Stmt, UnaryOp};
+use crate::ast::{Block, Expr, Literal, Stmt};
 
 /// Optimizer for expressions and statements
 pub struct Optimizer {
@@ -26,33 +26,37 @@ impl Optimizer {
         }
 
         match expr {
-            Expr::BinaryOp { op, left, right } => {
+            Expr::BinaryOp {
+                operator,
+                left,
+                right,
+            } => {
                 let left_opt = self.optimize_expr(left);
                 let right_opt = self.optimize_expr(right);
 
                 // Try constant folding
-                if let Some(result) = self.fold_binary_op(op, &left_opt, &right_opt) {
+                if let Some(result) = self.fold_binary_op(operator, &left_opt, &right_opt) {
                     return result;
                 }
 
                 Expr::BinaryOp {
-                    op: op.clone(),
+                    operator: operator.clone(),
                     left: Box::new(left_opt),
                     right: Box::new(right_opt),
                 }
             }
 
-            Expr::UnaryOp { op, expr: inner } => {
-                let inner_opt = self.optimize_expr(inner);
+            Expr::UnaryOp { operator, operand } => {
+                let operand_opt = self.optimize_expr(operand);
 
                 // Try constant folding
-                if let Some(result) = self.fold_unary_op(op, &inner_opt) {
+                if let Some(result) = self.fold_unary_op(operator, &operand_opt) {
                     return result;
                 }
 
                 Expr::UnaryOp {
-                    op: op.clone(),
-                    expr: Box::new(inner_opt),
+                    operator: operator.clone(),
+                    operand: Box::new(operand_opt),
                 }
             }
 
@@ -61,16 +65,16 @@ impl Optimizer {
     }
 
     /// Fold binary operation with constants
-    fn fold_binary_op(&self, op: &BinaryOp, left: &Expr, right: &Expr) -> Option<Expr> {
+    fn fold_binary_op(&self, op: &str, left: &Expr, right: &Expr) -> Option<Expr> {
         match (left, right) {
             (Expr::Literal(Literal::Integer(l)), Expr::Literal(Literal::Integer(r))) => {
                 let result = match op {
-                    BinaryOp::Add => l + r,
-                    BinaryOp::Subtract => l - r,
-                    BinaryOp::Multiply => l * r,
-                    BinaryOp::Divide if *r != 0 => l / r,
-                    BinaryOp::IntDivide if *r != 0 => l / r,
-                    BinaryOp::Modulo if *r != 0 => l % r,
+                    "+" => l + r,
+                    "-" => l - r,
+                    "*" => l * r,
+                    "/" if *r != 0 => l / r,
+                    "div" if *r != 0 => l / r,
+                    "mod" if *r != 0 => l % r,
                     _ => return None,
                 };
                 Some(Expr::Literal(Literal::Integer(result)))
@@ -78,37 +82,29 @@ impl Optimizer {
 
             (Expr::Literal(Literal::Boolean(l)), Expr::Literal(Literal::Boolean(r))) => {
                 let result = match op {
-                    BinaryOp::And => *l && *r,
-                    BinaryOp::Or => *l || *r,
-                    BinaryOp::Xor => *l ^ *r,
-                    BinaryOp::Equal => l == r,
-                    BinaryOp::NotEqual => l != r,
+                    "and" => *l && *r,
+                    "or" => *l || *r,
+                    "xor" => *l ^ *r,
+                    "=" => l == r,
+                    "<>" => l != r,
                     _ => return None,
                 };
                 Some(Expr::Literal(Literal::Boolean(result)))
             }
 
             // Algebraic simplifications
-            (Expr::Literal(Literal::Integer(0)), _) if matches!(op, BinaryOp::Add) => {
-                Some(right.clone())
-            }
-            (_, Expr::Literal(Literal::Integer(0)))
-                if matches!(op, BinaryOp::Add | BinaryOp::Subtract) =>
-            {
+            (Expr::Literal(Literal::Integer(0)), _) if matches!(op, "+") => Some(right.clone()),
+            (_, Expr::Literal(Literal::Integer(0))) if matches!(op, "+" | "-") => {
                 Some(left.clone())
             }
-            (Expr::Literal(Literal::Integer(1)), _) if matches!(op, BinaryOp::Multiply) => {
-                Some(right.clone())
-            }
-            (_, Expr::Literal(Literal::Integer(1)))
-                if matches!(op, BinaryOp::Multiply | BinaryOp::Divide) =>
-            {
+            (Expr::Literal(Literal::Integer(1)), _) if matches!(op, "*") => Some(right.clone()),
+            (_, Expr::Literal(Literal::Integer(1))) if matches!(op, "*" | "/") => {
                 Some(left.clone())
             }
-            (_, Expr::Literal(Literal::Integer(0))) if matches!(op, BinaryOp::Multiply) => {
+            (_, Expr::Literal(Literal::Integer(0))) if matches!(op, "*") => {
                 Some(Expr::Literal(Literal::Integer(0)))
             }
-            (Expr::Literal(Literal::Integer(0)), _) if matches!(op, BinaryOp::Multiply) => {
+            (Expr::Literal(Literal::Integer(0)), _) if matches!(op, "*") => {
                 Some(Expr::Literal(Literal::Integer(0)))
             }
 
@@ -117,16 +113,16 @@ impl Optimizer {
     }
 
     /// Fold unary operation with constants
-    fn fold_unary_op(&self, op: &UnaryOp, expr: &Expr) -> Option<Expr> {
+    fn fold_unary_op(&self, op: &str, expr: &Expr) -> Option<Expr> {
         match expr {
             Expr::Literal(Literal::Integer(val)) => match op {
-                UnaryOp::Minus | UnaryOp::Negate => Some(Expr::Literal(Literal::Integer(-val))),
-                UnaryOp::Plus => Some(expr.clone()),
+                "-" | "not" => Some(Expr::Literal(Literal::Integer(-val))),
+                "+" => Some(expr.clone()),
                 _ => None,
             },
 
             Expr::Literal(Literal::Boolean(val)) => match op {
-                UnaryOp::Not => Some(Expr::Literal(Literal::Boolean(!val))),
+                "not" => Some(Expr::Literal(Literal::Boolean(!val))),
                 _ => None,
             },
 
@@ -155,32 +151,18 @@ impl Optimizer {
                         if then_branch.len() == 1 {
                             return Some(then_branch[0].clone());
                         } else {
-                            return Some(Stmt::Block(crate::ast::Block {
-                                consts: vec![],
-                                types: vec![],
-                                vars: vec![],
-                                procedures: vec![],
-                                functions: vec![],
-                                statements: then_branch.clone(),
-                            }));
+                            return Some(Stmt::Block(Block::with_statements(then_branch.clone())));
                         }
                     } else if let Some(else_stmts) = else_branch {
                         // Condition is always false, keep only else branch
                         if else_stmts.len() == 1 {
                             return Some(else_stmts[0].clone());
                         } else {
-                            return Some(Stmt::Block(crate::ast::Block {
-                                consts: vec![],
-                                types: vec![],
-                                vars: vec![],
-                                procedures: vec![],
-                                functions: vec![],
-                                statements: else_stmts.clone(),
-                            }));
+                            return Some(Stmt::Block(Block::with_statements(else_stmts.clone())));
                         }
                     } else {
                         // Condition is false and no else, remove entire if
-                        return Some(Stmt::Empty);
+                        return None;
                     }
                 }
 
@@ -196,7 +178,7 @@ impl Optimizer {
 
                 // Dead code elimination for constant false condition
                 if let Expr::Literal(Literal::Boolean(false)) = opt_condition {
-                    return Some(Stmt::Empty);
+                    return None; // No statement for always-false while
                 }
 
                 Some(Stmt::While {
@@ -288,7 +270,7 @@ mod tests {
 
         // 2 + 3 = 5
         let expr = Expr::BinaryOp {
-            op: BinaryOp::Add,
+            operator: "+".to_string(),
             left: Box::new(Expr::Literal(Literal::Integer(2))),
             right: Box::new(Expr::Literal(Literal::Integer(3))),
         };
@@ -303,27 +285,27 @@ mod tests {
 
         // x + 0 = x
         let expr = Expr::BinaryOp {
-            op: BinaryOp::Add,
-            left: Box::new(Expr::Identifier(vec!["x".to_string()])),
+            operator: "+".to_string(),
+            left: Box::new(Expr::Variable("x".to_string())),
             right: Box::new(Expr::Literal(Literal::Integer(0))),
         };
 
         let result = optimizer.optimize_expr(&expr);
-        assert_eq!(result, Expr::Identifier(vec!["x".to_string()]));
+        assert_eq!(result, Expr::Variable("x".to_string()));
     }
 
     #[test]
     fn test_dead_code_elimination() {
         let optimizer = Optimizer::new();
 
-        // if false then ... -> empty
+        // if false then ... -> nothing
         let stmt = Stmt::If {
             condition: Expr::Literal(Literal::Boolean(false)),
-            then_branch: vec![Stmt::Empty],
+            then_branch: vec![],
             else_branch: None,
         };
 
         let result = optimizer.optimize_stmt(&stmt);
-        assert!(matches!(result, Some(Stmt::Empty)));
+        assert!(result.is_none());
     }
 }

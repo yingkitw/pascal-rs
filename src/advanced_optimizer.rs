@@ -2,7 +2,7 @@
 //!
 //! Common subexpression elimination, function inlining, loop optimizations
 
-use crate::ast::{Expr, FunctionDecl, Literal, Stmt};
+use crate::ast::{Block, Expr, FunctionDecl, Literal, Stmt};
 use std::collections::HashMap;
 
 /// Common Subexpression Eliminator
@@ -29,7 +29,11 @@ impl CSEOptimizer {
 
     fn optimize_expr_internal(&mut self, expr: &Expr, temps: &mut Vec<(String, Expr)>) -> Expr {
         match expr {
-            Expr::BinaryOp { operator, left, right } => {
+            Expr::BinaryOp {
+                operator,
+                left,
+                right,
+            } => {
                 let left_opt = self.optimize_expr_internal(left, temps);
                 let right_opt = self.optimize_expr_internal(right, temps);
 
@@ -85,7 +89,6 @@ impl FunctionInliner {
 
     /// Check if function should be inlined
     pub fn should_inline(&self, func: &FunctionDecl) -> bool {
-        // Count statements in function body
         let stmt_count = func.block.statements.len();
         stmt_count <= self.inline_threshold
     }
@@ -96,7 +99,6 @@ impl FunctionInliner {
 
         let mut stmts = Vec::new();
 
-        // Create parameter assignments
         for (i, param) in func.parameters.iter().enumerate() {
             if i < args.len() {
                 stmts.push(Stmt::Assignment {
@@ -106,7 +108,6 @@ impl FunctionInliner {
             }
         }
 
-        // Add function body
         stmts.extend(func.block.statements.clone());
 
         stmts
@@ -132,24 +133,25 @@ impl LoopOptimizer {
     /// Optimize a loop statement
     pub fn optimize_loop(&self, stmt: &Stmt) -> Stmt {
         match stmt {
-            // For loops not in basic AST, skip
-            _ if false => {
-                // Check if loop can be unrolled
+            Stmt::For {
+                var_name,
+                start,
+                end,
+                body,
+                ..
+            } => {
                 if let (Expr::Literal(Literal::Integer(s)), Expr::Literal(Literal::Integer(e))) =
                     (start, end)
                 {
-                    let iterations = (e - s + 1).abs() as usize;
-
+                    let iterations = (e - s + 1).unsigned_abs() as usize;
                     if iterations <= self.unroll_factor {
                         return self.unroll_for_loop(var_name, *s, *e, body);
                     }
                 }
-
                 stmt.clone()
             }
 
             Stmt::While { condition, body } => {
-                // Loop invariant code motion
                 self.hoist_invariants(condition, body)
             }
 
@@ -162,20 +164,12 @@ impl LoopOptimizer {
         let mut unrolled = Vec::new();
 
         for i in start..=end {
-            // Substitute loop variable with constant
             for stmt in body {
                 unrolled.push(self.substitute_var(stmt, var_name, i));
             }
         }
 
-        Stmt::Block(crate::ast::Block {
-            consts: vec![],
-            types: vec![],
-            vars: vec![],
-            procedures: vec![],
-            functions: vec![],
-            statements: unrolled,
-        })
+        Stmt::Block(Block::with_statements(unrolled))
     }
 
     /// Substitute variable with constant
@@ -185,7 +179,7 @@ impl LoopOptimizer {
                 target,
                 value: expr,
             } => Stmt::Assignment {
-                target: self.substitute_expr(target, var_name, value),
+                target: target.clone(),
                 value: self.substitute_expr(expr, var_name, value),
             },
             _ => stmt.clone(),
@@ -195,11 +189,11 @@ impl LoopOptimizer {
     /// Substitute variable in expression
     fn substitute_expr(&self, expr: &Expr, var_name: &str, value: i64) -> Expr {
         match expr {
-            Expr::Identifier(parts) if parts.len() == 1 && parts[0] == var_name => {
+            Expr::Variable(name) if name == var_name => {
                 Expr::Literal(Literal::Integer(value))
             }
-            Expr::BinaryOp { op, left, right } => Expr::BinaryOp {
-                op: op.clone(),
+            Expr::BinaryOp { operator, left, right } => Expr::BinaryOp {
+                operator: operator.clone(),
                 left: Box::new(self.substitute_expr(left, var_name, value)),
                 right: Box::new(self.substitute_expr(right, var_name, value)),
             },
@@ -237,23 +231,16 @@ impl TailCallOptimizer {
 
     /// Check if statement is a tail call
     pub fn is_tail_call(&self, stmt: &Stmt, func_name: &str) -> bool {
-        match stmt {
-            Stmt::ProcedureCall { name, .. } if name == func_name => true,
-            _ => false,
-        }
+        matches!(stmt, Stmt::ProcedureCall { name, .. } if name == func_name)
     }
 
     /// Optimize tail call to jump
     pub fn optimize_tail_call(&mut self, func: &FunctionDecl) -> FunctionDecl {
         let optimized_func = func.clone();
 
-        // Check if last statement is a recursive call
         if let Some(last_stmt) = func.block.statements.last() {
             if self.is_tail_call(last_stmt, &func.name) {
                 self.optimized_count += 1;
-
-                // Replace with loop (simplified)
-                // In real implementation, would transform to iterative version
             }
         }
 
@@ -279,18 +266,17 @@ impl StrengthReducer {
     /// Optimize expression with strength reduction
     pub fn optimize(&self, expr: &Expr) -> Expr {
         match expr {
-            Expr::BinaryOp { op, left, right } => {
+            Expr::BinaryOp { operator, left, right } => {
                 let left_opt = self.optimize(left);
                 let right_opt = self.optimize(right);
 
-                // x * 2 -> x << 1
-                if matches!(op, BinaryOp::Multiply) {
-                    if let Expr::Literal(Literal::Integer(n)) = right_opt {
-                        if n > 0 && (n & (n - 1)) == 0 {
-                            // Power of two
-                            let shift = (n as f64).log2() as i64;
+                // x * 2^n -> x << n
+                if operator == "*" {
+                    if let Expr::Literal(Literal::Integer(n)) = &right_opt {
+                        if *n > 0 && (*n & (*n - 1)) == 0 {
+                            let shift = (*n as f64).log2() as i64;
                             return Expr::BinaryOp {
-                                op: BinaryOp::ShiftLeft,
+                                operator: "shl".to_string(),
                                 left: Box::new(left_opt),
                                 right: Box::new(Expr::Literal(Literal::Integer(shift))),
                             };
@@ -298,13 +284,13 @@ impl StrengthReducer {
                     }
                 }
 
-                // x / 2 -> x >> 1
-                if matches!(op, BinaryOp::Divide) {
-                    if let Expr::Literal(Literal::Integer(n)) = right_opt {
-                        if n > 0 && (n & (n - 1)) == 0 {
-                            let shift = (n as f64).log2() as i64;
+                // x / 2^n -> x >> n
+                if operator == "div" {
+                    if let Expr::Literal(Literal::Integer(n)) = &right_opt {
+                        if *n > 0 && (*n & (*n - 1)) == 0 {
+                            let shift = (*n as f64).log2() as i64;
                             return Expr::BinaryOp {
-                                op: BinaryOp::ShiftRight,
+                                operator: "shr".to_string(),
                                 left: Box::new(left_opt),
                                 right: Box::new(Expr::Literal(Literal::Integer(shift))),
                             };
@@ -313,7 +299,7 @@ impl StrengthReducer {
                 }
 
                 Expr::BinaryOp {
-                    op: op.clone(),
+                    operator: operator.clone(),
                     left: Box::new(left_opt),
                     right: Box::new(right_opt),
                 }
@@ -390,18 +376,16 @@ mod tests {
     fn test_cse() {
         let mut cse = CSEOptimizer::new();
 
-        // a + b appears twice
         let expr1 = Expr::BinaryOp {
-            op: BinaryOp::Add,
-            left: Box::new(Expr::Identifier(vec!["a".to_string()])),
-            right: Box::new(Expr::Identifier(vec!["b".to_string()])),
+            operator: "+".to_string(),
+            left: Box::new(Expr::Variable("a".to_string())),
+            right: Box::new(Expr::Variable("b".to_string())),
         };
 
-        let (opt1, temps1) = cse.optimize_expr(&expr1);
+        let (_opt1, temps1) = cse.optimize_expr(&expr1);
         assert_eq!(temps1.len(), 1);
 
-        let (opt2, temps2) = cse.optimize_expr(&expr1);
-        // Should reuse same temp
+        let (_opt2, temps2) = cse.optimize_expr(&expr1);
         assert_eq!(temps2.len(), 0);
     }
 
@@ -418,8 +402,6 @@ mod tests {
         };
 
         let optimized = optimizer.optimize_loop(&loop_stmt);
-
-        // Should be unrolled to block
         assert!(matches!(optimized, Stmt::Block(_)));
     }
 
@@ -427,17 +409,16 @@ mod tests {
     fn test_strength_reduction() {
         let reducer = StrengthReducer;
 
-        // x * 8 -> x << 3
         let expr = Expr::BinaryOp {
-            op: BinaryOp::Multiply,
-            left: Box::new(Expr::Identifier(vec!["x".to_string()])),
+            operator: "*".to_string(),
+            left: Box::new(Expr::Variable("x".to_string())),
             right: Box::new(Expr::Literal(Literal::Integer(8))),
         };
 
         let optimized = reducer.optimize(&expr);
 
-        if let Expr::BinaryOp { op, .. } = optimized {
-            assert_eq!(op, BinaryOp::ShiftLeft);
+        if let Expr::BinaryOp { operator, .. } = optimized {
+            assert_eq!(operator, "shl");
         } else {
             panic!("Expected shift operation");
         }

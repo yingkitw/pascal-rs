@@ -1,14 +1,13 @@
 //! Declaration parsing for the Pascal parser
 
-use crate::ast::{Expr, SimpleType, Type};
-use crate::enhanced_ast;
+use crate::ast::{Block, FunctionDecl, Parameter, ProcedureDecl, SimpleType, Type, VariableDecl, FieldVisibility};
 use crate::parser::{ParseResult, Parser};
-use crate::ParseError;
 use crate::tokens::Token;
+use crate::ParseError;
 
 impl<'a> Parser<'a> {
     /// Parse a complete program
-    pub fn parse_program(&mut self) -> ParseResult<enhanced_ast::Program> {
+    pub fn parse_program(&mut self) -> ParseResult<crate::ast::Program> {
         let name = self.parse_program_header()?;
         let uses = self.parse_uses_clause()?;
         let block = self.parse_block()?;
@@ -16,7 +15,7 @@ impl<'a> Parser<'a> {
         // Expect final period
         self.consume(Token::Dot)?;
 
-        Ok(enhanced_ast::Program { name, uses, block })
+        Ok(crate::ast::Program { name, uses, block })
     }
 
     /// Parse program header: program Name;
@@ -76,88 +75,287 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a block (declarations + compound statement)
-    pub fn parse_block(&mut self) -> ParseResult<enhanced_ast::Block> {
+    /// Declaration sections (const, type, var, function, procedure) can appear in any order.
+    pub fn parse_block(&mut self) -> ParseResult<Block> {
         let mut consts = vec![];
         let mut types = vec![];
         let mut vars = vec![];
+        let mut procedures = vec![];
+        let mut functions = vec![];
 
-        // Parse const section
-        while self.check(Token::Const) {
-            self.advance();
-            while let Some(Token::Identifier(name)) = self.peek() {
-                let name = name.clone();
+        loop {
+            if self.check(Token::Const) {
                 self.advance();
-                self.consume_or_skip(Token::Equal, &[Token::Var, Token::Begin]);
+                while let Some(Token::Identifier(name)) = self.peek() {
+                    let name = name.clone();
+                    self.advance();
+                    self.consume_or_skip(Token::Equal, &[Token::Var, Token::Begin]);
 
-                if let Some(literal) = self.parse_literal()? {
-                    consts.push(enhanced_ast::Constant {
-                        name,
-                        constant_type: None,
-                        value: Expr::Literal(literal),
-                    });
+                    if let Some(literal) = self.parse_literal()? {
+                        consts.push(crate::ast::ConstDecl {
+                            name,
+                            value: literal,
+                            visibility: FieldVisibility::Public,
+                        });
+                    }
+
+                    self.consume_or_skip(Token::Semicolon, &[Token::Var, Token::Begin]);
                 }
-
-                self.consume_or_skip(Token::Semicolon, &[Token::Var, Token::Begin]);
-            }
-        }
-
-        // Parse type section
-        while self.check(Token::Type) {
-            self.advance();
-            while let Some(Token::Identifier(name)) = self.peek() {
-                let name = name.clone();
+            } else if self.check(Token::Type) {
                 self.advance();
-                self.consume_or_skip(Token::Equal, &[Token::Var, Token::Begin]);
+                while let Some(Token::Identifier(name)) = self.peek() {
+                    let name = name.clone();
+                    self.advance();
+                    self.consume_or_skip(Token::Equal, &[Token::Var, Token::Begin]);
 
-                if let Ok(_type_def) = self.parse_type() {
-                    types.push(enhanced_ast::TypeDefinition {
-                        name,
-                        type_definition: enhanced_ast::EnhancedType::Integer, // Simplified
-                    });
+                    if let Ok(type_def) = self.parse_type() {
+                        types.push(crate::ast::TypeDecl {
+                            name,
+                            type_definition: type_def,
+                            visibility: FieldVisibility::Public,
+                        });
+                    }
+
+                    self.consume_or_skip(Token::Semicolon, &[Token::Var, Token::Begin]);
                 }
-
-                self.consume_or_skip(Token::Semicolon, &[Token::Var, Token::Begin]);
-            }
-        }
-
-        // Parse var section
-        while self.check(Token::Var) {
-            self.advance();
-            while let Some(Token::Identifier(name)) = self.peek() {
-                let name = name.clone();
+            } else if self.check(Token::Var) {
                 self.advance();
-                self.consume_or_skip(Token::Colon, &[Token::Begin]);
+                while let Some(Token::Identifier(_)) = self.peek() {
+                    let mut names = vec![];
+                    loop {
+                        if let Some(Token::Identifier(name)) = self.current_token.take() {
+                            names.push(name);
+                            self.advance();
+                        }
+                        if self.check(Token::Comma) {
+                            self.advance();
+                        } else {
+                            break;
+                        }
+                    }
+                    self.consume_or_skip(Token::Colon, &[Token::Begin]);
 
-                if let Ok(_var_type) = self.parse_type() {
-                    vars.push(enhanced_ast::Variable {
-                        name,
-                        variable_type: enhanced_ast::EnhancedType::Integer, // Simplified
-                        initial_value: None,
-                        is_absolute: false,
-                        absolute_address: None,
-                        is_external: false,
-                        external_name: None,
-                        is_public: false,
-                        is_exported: false,
-                    });
+                    let var_type = self.parse_type().unwrap_or(Type::Simple(SimpleType::Integer));
+
+                    for name in names {
+                        vars.push(VariableDecl {
+                            name,
+                            variable_type: var_type.clone(),
+                            initial_value: None,
+                            visibility: FieldVisibility::Public,
+                            is_absolute: false,
+                            absolute_address: None,
+                        });
+                    }
+
+                    self.consume_or_skip(Token::Semicolon, &[Token::Begin]);
                 }
-
-                self.consume_or_skip(Token::Semicolon, &[Token::Begin]);
+            } else if self.check(Token::Procedure) {
+                self.advance();
+                let proc = self.parse_procedure_decl()?;
+                procedures.push(proc);
+            } else if self.check(Token::Function) {
+                self.advance();
+                let func = self.parse_function_decl()?;
+                functions.push(func);
+            } else {
+                break;
             }
         }
 
         // Parse compound statement
         let statements = self.parse_compound_statement()?;
 
-        Ok(enhanced_ast::Block {
+        Ok(Block {
             consts,
             types,
             vars,
-            procedures: vec![],
-            functions: vec![],
+            procedures,
+            functions,
             statements,
-            labels: vec![],
         })
+    }
+
+    /// Parse procedure declaration (after 'procedure' keyword consumed)
+    fn parse_procedure_decl(&mut self) -> ParseResult<ProcedureDecl> {
+        let name = match self.peek() {
+            Some(Token::Identifier(n)) => {
+                let n = n.clone();
+                self.advance();
+                n
+            }
+            _ => return Err(ParseError::UnexpectedToken("expected procedure name".to_string())),
+        };
+
+        let parameters = self.parse_parameters()?;
+        self.consume_or_skip(Token::Semicolon, &[Token::Var, Token::Begin, Token::Forward]);
+
+        // Check for forward declaration
+        if self.check(Token::Forward) {
+            self.advance();
+            self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Begin]);
+            return Ok(ProcedureDecl {
+                name,
+                parameters,
+                block: Block::empty(),
+                visibility: FieldVisibility::Public,
+                is_external: false,
+                external_name: None,
+                is_inline: false,
+                is_forward: true,
+                is_class_method: false,
+                is_virtual: false,
+                is_override: false,
+                is_overload: false,
+            });
+        }
+
+        let block = self.parse_block()?;
+        self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Begin]);
+
+        Ok(ProcedureDecl {
+            name,
+            parameters,
+            block,
+            visibility: FieldVisibility::Public,
+            is_external: false,
+            external_name: None,
+            is_inline: false,
+            is_forward: false,
+            is_class_method: false,
+            is_virtual: false,
+            is_override: false,
+            is_overload: false,
+        })
+    }
+
+    /// Parse function declaration (after 'function' keyword consumed)
+    fn parse_function_decl(&mut self) -> ParseResult<FunctionDecl> {
+        let name = match self.peek() {
+            Some(Token::Identifier(n)) => {
+                let n = n.clone();
+                self.advance();
+                n
+            }
+            _ => return Err(ParseError::UnexpectedToken("expected function name".to_string())),
+        };
+
+        let parameters = self.parse_parameters()?;
+
+        // Parse return type: ': type'
+        self.consume_or_skip(Token::Colon, &[Token::Semicolon, Token::Begin]);
+        let return_type = self.parse_type().unwrap_or(Type::Simple(SimpleType::Integer));
+        self.consume_or_skip(Token::Semicolon, &[Token::Var, Token::Begin, Token::Forward]);
+
+        // Check for forward declaration
+        if self.check(Token::Forward) {
+            self.advance();
+            self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Begin]);
+            return Ok(FunctionDecl {
+                name,
+                parameters,
+                return_type,
+                block: Block::empty(),
+                visibility: FieldVisibility::Public,
+                is_external: false,
+                external_name: None,
+                is_inline: false,
+                is_forward: true,
+                is_class_method: false,
+                is_virtual: false,
+                is_override: false,
+                is_overload: false,
+            });
+        }
+
+        let block = self.parse_block()?;
+        self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Begin]);
+
+        Ok(FunctionDecl {
+            name,
+            parameters,
+            return_type,
+            block,
+            visibility: FieldVisibility::Public,
+            is_external: false,
+            external_name: None,
+            is_inline: false,
+            is_forward: false,
+            is_class_method: false,
+            is_virtual: false,
+            is_override: false,
+            is_overload: false,
+        })
+    }
+
+    /// Parse parameter list: (a, b: integer; c: real) or empty
+    fn parse_parameters(&mut self) -> ParseResult<Vec<Parameter>> {
+        let mut params = vec![];
+
+        if !self.check(Token::LeftParen) {
+            return Ok(params);
+        }
+        self.advance(); // consume '('
+
+        if self.check(Token::RightParen) {
+            self.advance();
+            return Ok(params);
+        }
+
+        loop {
+            let is_var = if self.check(Token::Var) {
+                self.advance();
+                true
+            } else {
+                false
+            };
+
+            let is_const = if self.check(Token::Const) {
+                self.advance();
+                true
+            } else {
+                false
+            };
+
+            // Collect comma-separated parameter names
+            let mut names = vec![];
+            loop {
+                if let Some(Token::Identifier(name)) = self.peek() {
+                    let name = name.clone();
+                    self.advance();
+                    names.push(name);
+                }
+                if self.check(Token::Comma) {
+                    self.advance();
+                } else {
+                    break;
+                }
+            }
+
+            // Parse ': type'
+            self.consume_or_skip(Token::Colon, &[Token::Semicolon, Token::RightParen]);
+            let param_type = self.parse_type().unwrap_or(Type::Simple(SimpleType::Integer));
+
+            for name in names {
+                params.push(Parameter {
+                    name,
+                    param_type: param_type.clone(),
+                    is_var,
+                    is_const,
+                    is_out: false,
+                    default_value: None,
+                });
+            }
+
+            if self.check(Token::Semicolon) {
+                self.advance();
+            } else {
+                break;
+            }
+        }
+
+        self.consume_or_skip(Token::RightParen, &[Token::Semicolon, Token::Colon, Token::Begin]);
+        Ok(params)
     }
 
     /// Parse a type
@@ -200,23 +398,36 @@ impl<'a> Parser<'a> {
             Some(Token::Record) => {
                 self.advance();
                 let mut fields = std::collections::HashMap::new();
-                self.consume_or_skip(Token::LeftBrace, &[Token::End, Token::Semicolon]);
 
-                while !self.check(Token::RightBrace) && !self.check(Token::End) {
-                    if let Some(Token::Identifier(name)) = self.peek() {
-                        let name = name.clone();
-                        self.advance();
+                while !self.check(Token::End) && self.peek().is_some() {
+                    if let Some(Token::Identifier(_)) = self.peek() {
+                        // Collect comma-separated field names
+                        let mut names = vec![];
+                        loop {
+                            if let Some(Token::Identifier(name)) = self.peek() {
+                                let name = name.clone();
+                                self.advance();
+                                names.push(name);
+                            }
+                            if self.check(Token::Comma) {
+                                self.advance();
+                            } else {
+                                break;
+                            }
+                        }
                         self.consume_or_skip(Token::Colon, &[Token::End, Token::Semicolon]);
                         if let Ok(field_type) = self.parse_type() {
-                            fields.insert(name, Box::new(field_type));
+                            for name in names {
+                                fields.insert(name, Box::new(field_type.clone()));
+                            }
                         }
-                        self.consume_or_skip(Token::Semicolon, &[Token::End, Token::RightBrace]);
+                        self.consume_or_skip(Token::Semicolon, &[Token::End]);
                     } else {
                         break;
                     }
                 }
 
-                self.consume_or_skip(Token::RightBrace, &[Token::Semicolon]);
+                self.consume_or_skip(Token::End, &[Token::Semicolon]);
                 Type::Record {
                     fields,
                     is_packed: false,

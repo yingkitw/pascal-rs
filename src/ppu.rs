@@ -26,39 +26,29 @@ impl PpuFile {
 
     /// Load a PPU file from disk
     pub fn load<P: AsRef<Path>>(path: P) -> ModuleResult<Self> {
-        let data = fs::read(path.as_ref())
-            .map_err(|e| ModuleError::LoadError(
-                path.as_ref().display().to_string(),
-                e.to_string()
-            ))?;
-        
+        let data = fs::read(path.as_ref()).map_err(|e| {
+            ModuleError::LoadError(path.as_ref().display().to_string(), e.to_string())
+        })?;
+
         bincode::deserialize(&data)
-            .map_err(|e| ModuleError::LoadError(
-                path.as_ref().display().to_string(),
-                e.to_string()
-            ))
+            .map_err(|e| ModuleError::LoadError(path.as_ref().display().to_string(), e.to_string()))
     }
 
     /// Save a PPU file to disk
     pub fn save<P: AsRef<Path>>(&self, path: P) -> ModuleResult<()> {
-        let data = bincode::serialize(self)
-            .map_err(|e| ModuleError::LoadError(
-                path.as_ref().display().to_string(),
-                e.to_string()
-            ))?;
-        
+        let data = bincode::serialize(self).map_err(|e| {
+            ModuleError::LoadError(path.as_ref().display().to_string(), e.to_string())
+        })?;
+
         fs::write(path.as_ref(), data)
-            .map_err(|e| ModuleError::LoadError(
-                path.as_ref().display().to_string(),
-                e.to_string()
-            ))
+            .map_err(|e| ModuleError::LoadError(path.as_ref().display().to_string(), e.to_string()))
     }
 
     /// Calculate checksum for a module
     fn calculate_checksum(module: &Module) -> u64 {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
-        
+
         let mut hasher = DefaultHasher::new();
         module.name.hash(&mut hasher);
         hasher.finish()

@@ -2,18 +2,18 @@
 //!
 //! Validates types, performs type inference, and handles type conversions
 
-use crate::ast::{BinaryOp, Expr, Literal, Type, UnaryOp};
-use crate::symbol_table::SymbolTable;
+use crate::ast::{Expr, Literal, Type};
+use crate::symbol_table::SymbolTable as LocalSymbolTable;
 use anyhow::{anyhow, Result};
 
 /// Type checker
 pub struct TypeChecker<'a> {
-    symbol_table: &'a SymbolTable,
+    symbol_table: &'a LocalSymbolTable,
 }
 
 impl<'a> TypeChecker<'a> {
     /// Create a new type checker
-    pub fn new(symbol_table: &'a SymbolTable) -> Self {
+    pub fn new(symbol_table: &'a LocalSymbolTable) -> Self {
         Self { symbol_table }
     }
 
@@ -22,45 +22,42 @@ impl<'a> TypeChecker<'a> {
         match expr {
             Expr::Literal(lit) => Ok(self.literal_type(lit)),
 
-            Expr::Identifier(parts) => {
-                if let Some(name) = parts.first() {
-                    if let Some(symbol) = self.symbol_table.lookup(name) {
-                        Ok(symbol.typ.clone())
-                    } else {
-                        Err(anyhow!("Undefined variable: {}", name))
-                    }
+            Expr::Variable(name) => {
+                if let Some(symbol) = self.symbol_table.lookup(name) {
+                    Ok(symbol.typ.clone())
                 } else {
-                    Err(anyhow!("Empty identifier"))
+                    Err(anyhow!("Undefined variable: {}", name))
                 }
             }
 
-            Expr::BinaryOp { op, left, right } => {
+            Expr::BinaryOp {
+                operator,
+                left,
+                right,
+            } => {
                 let left_type = self.check_expr(left)?;
                 let right_type = self.check_expr(right)?;
-                self.check_binary_op(op, &left_type, &right_type)
+                self.check_binary_op(operator, &left_type, &right_type)
             }
 
-            Expr::UnaryOp { op, expr } => {
-                let expr_type = self.check_expr(expr)?;
-                self.check_unary_op(op, &expr_type)
+            Expr::UnaryOp { operator, operand } => {
+                let expr_type = self.check_expr(operand)?;
+                self.check_unary_op(operator, &expr_type)
             }
 
-            Expr::FunctionCall { name, args } => {
-                // Look up function signature to determine return type
-                if let Some(name) = name.first() {
-                    if let Some(sig) = self.symbol_table.lookup_function(name) {
-                        // Validate argument count
-                        if args.len() != sig.parameters.len() {
+            Expr::FunctionCall { name, arguments } => {
+                if let Some(symbol) = self.symbol_table.lookup(name) {
+                    if let Some(sig) = &symbol.function_signature {
+                        if arguments.len() != sig.parameters.len() {
                             return Err(anyhow!(
                                 "Function '{}' expects {} arguments, got {}",
                                 name,
                                 sig.parameters.len(),
-                                args.len()
+                                arguments.len()
                             ));
                         }
 
-                        // Validate argument types
-                        for (i, arg_expr) in args.iter().enumerate() {
+                        for (i, arg_expr) in arguments.iter().enumerate() {
                             let arg_type = self.check_expr(arg_expr)?;
                             let expected_type = &sig.parameters[i].1;
 
@@ -77,10 +74,10 @@ impl<'a> TypeChecker<'a> {
 
                         Ok(sig.return_type.clone())
                     } else {
-                        Err(anyhow!("Undefined function: {}", name))
+                        Err(anyhow!("'{}' is not a function", name))
                     }
                 } else {
-                    Err(anyhow!("Empty function name"))
+                    Err(anyhow!("Undefined function: {}", name))
                 }
             }
 
@@ -95,17 +92,18 @@ impl<'a> TypeChecker<'a> {
             Literal::Real(_) => Type::Real,
             Literal::Boolean(_) => Type::Boolean,
             Literal::Char(_) => Type::Char,
-            Literal::String(_) => Type::String(None),
-            Literal::Nil => Type::Pointer(Box::new(Type::Integer)), // Use Integer as placeholder
-            _ => Type::Integer,                                     // Default
+            Literal::String(_) => Type::String,
+            Literal::WideString(_) => Type::WideString,
+            Literal::Nil => Type::Pointer(Box::new(Type::Integer)),
+            Literal::Set(_) => Type::Integer, // Simplified
         }
     }
 
     /// Check binary operation types
-    fn check_binary_op(&self, op: &BinaryOp, left: &Type, right: &Type) -> Result<Type> {
+    fn check_binary_op(&self, op: &str, left: &Type, right: &Type) -> Result<Type> {
         match op {
             // Arithmetic operations
-            BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
+            "+" | "-" | "*" | "/" => {
                 if matches!(left, Type::Integer) && matches!(right, Type::Integer) {
                     Ok(Type::Integer)
                 } else if matches!(left, Type::Real) || matches!(right, Type::Real) {
@@ -116,12 +114,7 @@ impl<'a> TypeChecker<'a> {
             }
 
             // Comparison operations
-            BinaryOp::Equal
-            | BinaryOp::NotEqual
-            | BinaryOp::Less
-            | BinaryOp::LessOrEqual
-            | BinaryOp::Greater
-            | BinaryOp::GreaterOrEqual => {
+            "=" | "<>" | "<" | "<=" | ">" | ">=" => {
                 if self.types_compatible(left, right) {
                     Ok(Type::Boolean)
                 } else {
@@ -130,7 +123,7 @@ impl<'a> TypeChecker<'a> {
             }
 
             // Logical operations
-            BinaryOp::And | BinaryOp::Or | BinaryOp::Xor => {
+            "and" | "or" | "xor" => {
                 if matches!(left, Type::Boolean) && matches!(right, Type::Boolean) {
                     Ok(Type::Boolean)
                 } else {
@@ -143,9 +136,9 @@ impl<'a> TypeChecker<'a> {
     }
 
     /// Check unary operation type
-    fn check_unary_op(&self, op: &UnaryOp, operand: &Type) -> Result<Type> {
+    fn check_unary_op(&self, op: &str, operand: &Type) -> Result<Type> {
         match op {
-            UnaryOp::Minus | UnaryOp::Negate => {
+            "-" => {
                 if matches!(operand, Type::Integer | Type::Real) {
                     Ok(operand.clone())
                 } else {
@@ -153,11 +146,13 @@ impl<'a> TypeChecker<'a> {
                 }
             }
 
-            UnaryOp::Not => {
+            "not" => {
                 if matches!(operand, Type::Boolean) {
                     Ok(Type::Boolean)
+                } else if matches!(operand, Type::Integer | Type::Real) {
+                    Ok(operand.clone())
                 } else {
-                    Err(anyhow!("Not operation requires boolean"))
+                    Err(anyhow!("Not operation requires boolean or numeric type"))
                 }
             }
 
@@ -172,9 +167,14 @@ impl<'a> TypeChecker<'a> {
             (Type::Real, Type::Real) => true,
             (Type::Boolean, Type::Boolean) => true,
             (Type::Char, Type::Char) => true,
-            (Type::String(_), Type::String(_)) => true,
+            (Type::String, Type::String) => true,
+            (Type::WideString, Type::WideString) => true,
             // Allow integer to real conversion
             (Type::Integer, Type::Real) | (Type::Real, Type::Integer) => true,
+            // Allow string conversions
+            (Type::String, Type::WideString) | (Type::WideString, Type::String) => true,
+            // Pointer compatibility
+            (Type::Pointer(_), Type::Pointer(_)) => true,
             _ => false,
         }
     }
@@ -186,7 +186,8 @@ impl<'a> TypeChecker<'a> {
             (Type::Real, Type::Real) => false,
             (Type::Boolean, Type::Boolean) => false,
             (Type::Char, Type::Char) => false,
-            (Type::String(_), Type::String(_)) => false,
+            (Type::String, Type::String) => false,
+            (Type::WideString, Type::WideString) => false,
             _ => self.types_compatible(from, to),
         }
     }
@@ -198,26 +199,43 @@ mod tests {
 
     #[test]
     fn test_literal_types() {
-        let table = SymbolTable::new();
+        let table = LocalSymbolTable::new();
         let checker = TypeChecker::new(&table);
 
-        assert_eq!(checker.literal_type(&Literal::Integer(42)), Type::Integer);
-        assert_eq!(checker.literal_type(&Literal::Boolean(true)), Type::Boolean);
-        assert_eq!(checker.literal_type(&Literal::Real(3.14)), Type::Real);
+        assert_eq!(
+            checker.literal_type(&Literal::Integer(42)),
+            Type::Integer
+        );
+        assert_eq!(
+            checker.literal_type(&Literal::Boolean(true)),
+            Type::Boolean
+        );
+        assert_eq!(
+            checker.literal_type(&Literal::Real(3.14)),
+            Type::Real
+        );
     }
 
     #[test]
     fn test_binary_op_types() {
-        let table = SymbolTable::new();
+        let table = LocalSymbolTable::new();
         let checker = TypeChecker::new(&table);
 
         // Integer + Integer = Integer
-        let result = checker.check_binary_op(&BinaryOp::Add, &Type::Integer, &Type::Integer);
+        let result = checker.check_binary_op(
+            "+",
+            &Type::Integer,
+            &Type::Integer,
+        );
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), Type::Integer);
 
         // Integer < Integer = Boolean
-        let result = checker.check_binary_op(&BinaryOp::Less, &Type::Integer, &Type::Integer);
+        let result = checker.check_binary_op(
+            "<",
+            &Type::Integer,
+            &Type::Integer,
+        );
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), Type::Boolean);
     }

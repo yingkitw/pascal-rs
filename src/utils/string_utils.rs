@@ -143,9 +143,7 @@ pub fn is_valid_identifier(s: &str) -> bool {
 
 /// Normalize whitespace in a string (collapse multiple spaces to one)
 pub fn normalize_whitespace(s: &str) -> String {
-    s.split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// Indent each line of a string

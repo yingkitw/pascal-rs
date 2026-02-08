@@ -2,7 +2,7 @@
 //!
 //! Generic types, type inference improvements, operator overloading
 
-use crate::ast::{BinaryOp, Expr, Type};
+use crate::ast::{Expr, Type};
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 
@@ -71,7 +71,10 @@ impl GenericType {
         }
 
         // Create new instantiation
-        let instantiated = Type::Custom(format!("{}<{}>", self.base_type, type_key.join(", ")));
+        let instantiated = Type::GenericInstance {
+            base_type: self.base_type.clone(),
+            type_arguments: concrete_types,
+        };
 
         self.instantiations.push((type_key, instantiated.clone()));
         Ok(instantiated)
@@ -90,7 +93,7 @@ impl GenericType {
                     // Most types are comparable
                 }
                 TypeConstraint::Reference => {
-                    if !matches!(concrete, Type::Pointer(_) | Type::String(_)) {
+                    if !matches!(concrete, Type::Pointer(_) | Type::String) {
                         return Err(anyhow!("Type must be a reference type"));
                     }
                 }
@@ -124,7 +127,10 @@ impl TypeInference {
     pub fn fresh_type_var(&mut self) -> Type {
         let var_name = format!("T{}", self.next_type_var);
         self.next_type_var += 1;
-        Type::Custom(var_name)
+        Type::Generic {
+            name: var_name,
+            constraints: vec![],
+        }
     }
 
     /// Infer type from expression
@@ -135,43 +141,29 @@ impl TypeInference {
                 crate::ast::Literal::Real(_) => Type::Real,
                 crate::ast::Literal::Boolean(_) => Type::Boolean,
                 crate::ast::Literal::Char(_) => Type::Char,
-                crate::ast::Literal::String(_) => Type::String(None),
+                crate::ast::Literal::String(_) => Type::String,
                 _ => Type::Integer,
             }),
 
-            Expr::Identifier(parts) => {
-                // Look up in type environment
-                if let Some(name) = parts.first() {
-                    if let Some(typ) = self.type_vars.get(name) {
-                        Ok(typ.clone())
-                    } else {
-                        // Create fresh type variable
-                        let typ = self.fresh_type_var();
-                        self.type_vars.insert(name.clone(), typ.clone());
-                        Ok(typ)
-                    }
+            Expr::Variable(name) => {
+                if let Some(typ) = self.type_vars.get(name) {
+                    Ok(typ.clone())
                 } else {
-                    Err(anyhow!("Empty identifier"))
+                    let typ = self.fresh_type_var();
+                    self.type_vars.insert(name.clone(), typ.clone());
+                    Ok(typ)
                 }
             }
 
-            Expr::BinaryOp { op, left, right } => {
+            Expr::BinaryOp { operator, left, right } => {
                 let left_type = self.infer_expr(left)?;
                 let right_type = self.infer_expr(right)?;
 
-                // Unify types
                 self.unify(&left_type, &right_type)?;
 
-                match op {
-                    BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
-                        Ok(left_type)
-                    }
-                    BinaryOp::Equal
-                    | BinaryOp::NotEqual
-                    | BinaryOp::Less
-                    | BinaryOp::LessOrEqual
-                    | BinaryOp::Greater
-                    | BinaryOp::GreaterOrEqual => Ok(Type::Boolean),
+                match operator.as_str() {
+                    "+" | "-" | "*" | "/" | "div" | "mod" => Ok(left_type),
+                    "=" | "<>" | "<" | "<=" | ">" | ">=" => Ok(Type::Boolean),
                     _ => Ok(left_type),
                 }
             }
@@ -232,17 +224,17 @@ pub enum OverloadableOperator {
 }
 
 impl OverloadableOperator {
-    /// Convert from BinaryOp
-    pub fn from_binary_op(op: &BinaryOp) -> Option<Self> {
+    /// Convert from operator string
+    pub fn from_operator_str(op: &str) -> Option<Self> {
         match op {
-            BinaryOp::Add => Some(Self::Add),
-            BinaryOp::Subtract => Some(Self::Subtract),
-            BinaryOp::Multiply => Some(Self::Multiply),
-            BinaryOp::Divide => Some(Self::Divide),
-            BinaryOp::Equal => Some(Self::Equal),
-            BinaryOp::NotEqual => Some(Self::NotEqual),
-            BinaryOp::Less => Some(Self::Less),
-            BinaryOp::Greater => Some(Self::Greater),
+            "+" => Some(Self::Add),
+            "-" => Some(Self::Subtract),
+            "*" => Some(Self::Multiply),
+            "/" | "div" => Some(Self::Divide),
+            "=" => Some(Self::Equal),
+            "<>" => Some(Self::NotEqual),
+            "<" => Some(Self::Less),
+            ">" => Some(Self::Greater),
             _ => None,
         }
     }
@@ -364,7 +356,7 @@ mod tests {
         );
 
         let int_array = generic.instantiate(vec![Type::Integer]).unwrap();
-        assert!(matches!(int_array, Type::Custom { .. }));
+        assert!(matches!(int_array, Type::GenericInstance { .. }));
     }
 
     #[test]
@@ -383,16 +375,16 @@ mod tests {
 
         registry.register(OperatorOverload {
             operator: OverloadableOperator::Add,
-            left_type: Type::String(None),
-            right_type: Some(Type::String(None)),
-            return_type: Type::String(None),
+            left_type: Type::String,
+            right_type: Some(Type::String),
+            return_type: Type::String,
             implementation: "string_concat".to_string(),
         });
 
         assert!(registry.is_overloaded(
             &OverloadableOperator::Add,
-            &Type::String(None),
-            Some(&Type::String(None))
+            &Type::String,
+            Some(&Type::String)
         ));
     }
 }

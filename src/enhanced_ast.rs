@@ -1,5 +1,4 @@
-use super::*;
-use crate::ast::{CallingConvention, ConstDecl, TypeDecl, VariableDecl};
+use crate::ast::{CallingConvention, ConstDecl, FunctionDecl, Parameter, ProcedureDecl, TypeDecl, VariableDecl};
 
 pub enum EnhancedAst {
     Program(Program),
@@ -37,6 +36,7 @@ pub struct Package {
 }
 
 pub struct UnitInterface {
+    pub uses: Vec<String>,
     pub types: Vec<TypeDecl>,
     pub constants: Vec<ConstDecl>,
     pub variables: Vec<VariableDecl>,
@@ -45,13 +45,14 @@ pub struct UnitInterface {
 }
 
 pub struct UnitImplementation {
+    pub uses: Vec<String>,
     pub types: Vec<TypeDecl>,
     pub constants: Vec<ConstDecl>,
     pub variables: Vec<VariableDecl>,
     pub procedures: Vec<ProcedureDecl>,
     pub functions: Vec<FunctionDecl>,
-    pub initialization: Option<Vec<Stmt>>,
-    pub finalization: Option<Vec<Stmt>>,
+    pub initialization: Option<Vec<Statement>>,
+    pub finalization: Option<Vec<Statement>>,
 }
 
 pub enum EnhancedType {
@@ -205,11 +206,11 @@ pub struct TypeDefinition {
     pub type_definition: EnhancedType,
 }
 
-// Use type aliases to the complete basic AST types
-pub type Statement = crate::Statement;
-pub type Expression = crate::Expression;
-pub type BinaryOperator = String;
-pub type UnaryOperator = String;
+pub type Statement = crate::ast::Statement;
+pub type Expression = crate::ast::Expression;
+pub type Stmt = crate::ast::Statement;
+pub type Expr = crate::ast::Expression;
+pub type Literal = crate::ast::Literal;
 
 pub struct UseClause {
     pub unit_name: String,

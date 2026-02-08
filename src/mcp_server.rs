@@ -1,10 +1,10 @@
 //! MCP (Model Context Protocol) Server for Pascal Compiler
-//! 
+//!
 //! Provides parallel compilation capabilities through MCP interface
 
+use crate::{Module, ModuleLoader, ModuleResult, ParallelCompiler, ParallelConfig};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::{ParallelConfig, ParallelCompiler, ModuleLoader, Module, ModuleResult};
 
 /// MCP Server for Pascal compiler operations
 pub struct McpServer {
@@ -115,31 +115,31 @@ impl McpServer {
 
     /// Compile modules in parallel
     fn compile_parallel(&self, modules: Vec<String>) -> Vec<ModuleResult<Module>> {
-        self.compiler.compile_modules_parallel(
-            modules,
-            |name| {
-                // Simulate compilation - in real implementation, this would:
-                // 1. Load source file
-                // 2. Parse to AST
-                // 3. Type check
-                // 4. Generate code
-                // 5. Create Module
-                Err(crate::ModuleError::LoadError(
-                    name.to_string(),
-                    "Compilation not yet fully integrated".to_string(),
-                ))
-            }
-        )
-    }
-
-    /// Compile modules sequentially
-    fn compile_sequential(&self, modules: Vec<String>) -> Vec<ModuleResult<Module>> {
-        modules.iter().map(|name| {
+        self.compiler.compile_modules_parallel(modules, |name| {
+            // Simulate compilation - in real implementation, this would:
+            // 1. Load source file
+            // 2. Parse to AST
+            // 3. Type check
+            // 4. Generate code
+            // 5. Create Module
             Err(crate::ModuleError::LoadError(
                 name.to_string(),
                 "Compilation not yet fully integrated".to_string(),
             ))
-        }).collect()
+        })
+    }
+
+    /// Compile modules sequentially
+    fn compile_sequential(&self, modules: Vec<String>) -> Vec<ModuleResult<Module>> {
+        modules
+            .iter()
+            .map(|name| {
+                Err(crate::ModuleError::LoadError(
+                    name.to_string(),
+                    "Compilation not yet fully integrated".to_string(),
+                ))
+            })
+            .collect()
     }
 
     /// Get cached modules
@@ -213,7 +213,7 @@ mod tests {
     fn test_mcp_server_creation() {
         let config = ParallelConfig::new();
         let server = McpServer::new(config);
-        
+
         let status = server.handle_status(StatusRequest {});
         assert!(status.parallel_enabled);
         assert!(status.threads > 0);
@@ -225,7 +225,7 @@ mod tests {
             .threads(4)
             .parallel_modules(true)
             .build();
-        
+
         let cached = server.get_cached_modules();
         assert_eq!(cached.len(), 0);
     }
@@ -234,14 +234,14 @@ mod tests {
     fn test_compile_request() {
         let config = ParallelConfig::new();
         let mut server = McpServer::new(config);
-        
+
         let request = CompileRequest {
             modules: vec!["Test".to_string()],
             parallel: false,
             threads: 1,
             search_paths: vec![],
         };
-        
+
         let response = server.handle_compile(request);
         assert_eq!(response.compiled.len(), 0);
         assert!(response.duration_ms >= 0);
@@ -251,7 +251,7 @@ mod tests {
     fn test_status_request() {
         let config = ParallelConfig::new();
         let server = McpServer::new(config);
-        
+
         let status = server.handle_status(StatusRequest {});
         assert_eq!(status.version, env!("CARGO_PKG_VERSION"));
         assert!(status.parallel_enabled);

@@ -202,6 +202,7 @@ impl SymbolTable {
             is_exported: false,
             is_const: true,
             const_value: Some(value),
+            function_signature: None,
         };
 
         self.scopes[self.current_scope].symbols.insert(name, symbol);
@@ -228,13 +229,13 @@ impl SymbolTable {
     /// Get type size in bytes
     fn get_type_size(&self, typ: &Type) -> i32 {
         match typ {
-            Type::Integer | Type::Boolean | Type::Char => 8,
+            Type::Integer | Type::Simple(_) | Type::Boolean | Type::Char => 8,
             Type::Real => 8,
-            Type::String(_) => 8, // Pointer to string
+            Type::String | Type::WideString => 8, // Pointer to string
             Type::Pointer(_) => 8,
             Type::Array { .. } => 8,  // Pointer to array
             Type::Record { .. } => 8, // Pointer to record
-            _ => 8,                   // Default size
+            _ => 8, // Default size
         }
     }
 

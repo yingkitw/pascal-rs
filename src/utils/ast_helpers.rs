@@ -2,7 +2,7 @@
 //!
 //! Common operations on AST nodes to reduce code duplication.
 
-use crate::ast::{Expr, Literal, Stmt, Type};
+use crate::ast::{Expr, Literal, SimpleType, Stmt, Type};
 
 /// Create a binary operation expression
 pub fn binop(left: Expr, op: &str, right: Expr) -> Expr {
@@ -54,6 +54,16 @@ pub fn call(name: &str, args: Vec<Expr>) -> Expr {
     }
 }
 
+/// Create a real literal
+pub fn real_lit(r: f64) -> Expr {
+    lit(Literal::Real(r))
+}
+
+/// Create a char literal
+pub fn char_lit(c: char) -> Expr {
+    lit(Literal::Char(c))
+}
+
 /// Create an assignment statement
 pub fn assign(target: &str, value: Expr) -> Stmt {
     Stmt::Assignment {
@@ -73,10 +83,7 @@ pub fn if_stmt(condition: Expr, then_branch: Vec<Stmt>, else_branch: Option<Vec<
 
 /// Create a while loop statement
 pub fn while_stmt(condition: Expr, body: Vec<Stmt>) -> Stmt {
-    Stmt::While {
-        condition,
-        body,
-    }
+    Stmt::While { condition, body }
 }
 
 /// Create a procedure call statement
@@ -118,12 +125,12 @@ pub fn is_left_associative(op: &str) -> bool {
 /// Create a simple type
 pub fn simple_type(type_name: &str) -> Type {
     Type::Simple(match type_name {
-        "integer" => crate::ast::SimpleType::Integer,
-        "real" => crate::ast::SimpleType::Real,
-        "boolean" => crate::ast::SimpleType::Boolean,
-        "char" => crate::ast::SimpleType::Char,
-        "string" => crate::ast::SimpleType::String,
-        _ => crate::ast::SimpleType::Integer,
+        "integer" => SimpleType::Integer,
+        "real" => SimpleType::Real,
+        "boolean" => SimpleType::Boolean,
+        "char" => SimpleType::Char,
+        "string" => SimpleType::String,
+        _ => SimpleType::Integer,
     })
 }
 

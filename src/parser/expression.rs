@@ -2,9 +2,9 @@
 
 use crate::ast::{Expr, Literal};
 use crate::parser::{ParseResult, Parser};
-use crate::ParseError;
 use crate::tokens::Token;
 use crate::utils::ast_helpers::*;
+use crate::ParseError;
 
 impl<'a> Parser<'a> {
     /// Parse expression
@@ -112,6 +112,7 @@ impl<'a> Parser<'a> {
             Some(Token::IntegerLiteral(_))
             | Some(Token::RealLiteral(_))
             | Some(Token::StringLiteral(_))
+            | Some(Token::PascalStringLiteral(_))
             | Some(Token::CharLiteral(_))
             | Some(Token::True)
             | Some(Token::False) => {
@@ -176,6 +177,15 @@ impl<'a> Parser<'a> {
                 let lit = Some(Literal::String(s.clone()));
                 self.advance();
                 lit
+            }
+            Some(Token::PascalStringLiteral(s)) => {
+                let s = s.clone();
+                self.advance();
+                if s.len() == 1 {
+                    Some(Literal::Char(s.chars().next().unwrap()))
+                } else {
+                    Some(Literal::String(s))
+                }
             }
             Some(Token::CharLiteral(c)) => {
                 let lit = Some(Literal::Char(*c));

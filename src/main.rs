@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use pascal::ppu::PpuFile;
-use pascal::{ParallelConfig, ParallelCompiler};
+use pascal::ParallelConfig;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -69,6 +69,16 @@ enum Commands {
         ppu_file: PathBuf,
     },
 
+    /// Run a Pascal program (interpreter)
+    Run {
+        /// Input Pascal file
+        input: PathBuf,
+
+        /// Verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
     /// Clean compiled files
     Clean {
         /// Directory to clean
@@ -107,6 +117,7 @@ fn main() -> Result<()> {
             threads,
         ),
         Commands::Info { ppu_file } => show_ppu_info(ppu_file),
+        Commands::Run { input, verbose } => run_file(input, verbose),
         Commands::Clean { directory } => clean_directory(directory),
     }
 }
@@ -115,16 +126,15 @@ fn compile_file(
     input: PathBuf,
     output: PathBuf,
     _search_paths: Vec<PathBuf>,
-    _optimization: u8,
+    optimization: u8,
     _debug: bool,
     _generate_ppu: bool,
     _use_ppu: bool,
-    _generate_asm: bool,
+    generate_asm: bool,
     verbose: bool,
     parallel: bool,
     threads: usize,
 ) -> Result<()> {
-    // Validate input file
     if !input.exists() {
         eprintln!(
             "{} File not found: {}",
@@ -138,6 +148,7 @@ fn compile_file(
         println!("{} {}", "Compiling:".green().bold(), input.display());
         println!("{}", "Configuration:".cyan().bold());
         println!("  Output directory: {}", output.display());
+        println!("  Optimization level: {}", optimization);
         if parallel {
             println!("  Parallel compilation: {}", "enabled".green());
             if threads > 0 {
@@ -154,32 +165,153 @@ fn compile_file(
             .with_threads(threads)
             .with_parallel_modules(true)
             .with_parallel_optimization(true);
-        
+
         if let Err(e) = config.init_thread_pool() {
             eprintln!("{} Failed to initialize thread pool: {}", "Error:".red().bold(), e);
             std::process::exit(1);
         }
-        
+
         if verbose {
             println!("{} Thread pool initialized", "Info:".cyan().bold());
         }
     }
 
-    // TODO: Implement full compilation pipeline
-    // For now, provide a placeholder message
+    // Read source file
+    let source = std::fs::read_to_string(&input)?;
+    if verbose {
+        println!("{} Read {} bytes", "Info:".cyan().bold(), source.len());
+    }
+
+    // Parsing (lexer is created internally by parser)
+    let mut parser = pascal::parser::Parser::new(&source);
+    let program = match parser.parse_program() {
+        Ok(prog) => {
+            if verbose {
+                println!("{} Parsed program '{}'", "Info:".cyan().bold(), prog.name);
+                println!("  Uses: {:?}", prog.uses);
+                println!("  Statements: {}", prog.block.statements.len());
+                println!("  Variables: {}", prog.block.vars.len());
+                println!("  Constants: {}", prog.block.consts.len());
+            }
+            prog
+        }
+        Err(e) => {
+            eprintln!("{} {}", "Parse error:".red().bold(), e);
+            if !parser.errors().is_empty() {
+                for err in parser.errors() {
+                    eprintln!("  {}", err);
+                }
+            }
+            std::process::exit(1);
+        }
+    };
+
+    // Optimization
+    if optimization > 0 && verbose {
+        println!("{} Optimization level {}", "Info:".cyan().bold(), optimization);
+    }
+
+    // Code generation (assembly)
+    if generate_asm {
+        let stem = input.file_stem().unwrap().to_str().unwrap();
+        let asm_path = output.join(format!("{}.asm", stem));
+
+        // Create a unit from the program for code generation
+        let unit = pascal::ast::Unit {
+            name: program.name.clone(),
+            uses: program.uses.clone(),
+            interface: pascal::ast::UnitInterface {
+                uses: vec![],
+                types: vec![],
+                constants: vec![],
+                variables: vec![],
+                procedures: vec![],
+                functions: vec![],
+                classes: vec![],
+                interfaces: vec![],
+            },
+            implementation: pascal::ast::UnitImplementation {
+                uses: vec![],
+                types: program.block.types.clone(),
+                constants: program.block.consts.clone(),
+                variables: program.block.vars.clone(),
+                procedures: program.block.procedures.clone(),
+                functions: program.block.functions.clone(),
+                classes: vec![],
+                interfaces: vec![],
+                initialization: Some(program.block.statements.clone()),
+                finalization: None,
+            },
+        };
+
+        let mut codegen = pascal::UnitCodeGenerator::new();
+        let asm_output = codegen.generate_unit(&unit)?;
+
+        std::fs::create_dir_all(&output)?;
+        std::fs::write(&asm_path, asm_output)?;
+
+        println!(
+            "{} Generated assembly: {}",
+            "Success:".green().bold(),
+            asm_path.display()
+        );
+    }
+
     println!(
-        "{} Compilation functionality is being implemented",
-        "Note:".yellow().bold()
+        "{} Compiled '{}' successfully",
+        "Success:".green().bold(),
+        program.name
     );
-    println!("  Input: {}", input.display());
-    println!("  Output: {}", output.display());
-    
-    eprintln!(
-        "{} Full compiler integration is not yet complete",
-        "Warning:".yellow().bold()
-    );
-    eprintln!("  The compiler modules are available but need to be integrated into the CLI");
-    
+
+    Ok(())
+}
+
+fn run_file(input: PathBuf, verbose: bool) -> Result<()> {
+    if !input.exists() {
+        eprintln!(
+            "{} File not found: {}",
+            "Error:".red().bold(),
+            input.display()
+        );
+        std::process::exit(1);
+    }
+
+    let source = std::fs::read_to_string(&input)?;
+    if verbose {
+        println!("{} {}", "Running:".green().bold(), input.display());
+    }
+
+    // Parse
+    let mut parser = pascal::parser::Parser::new(&source);
+    let program = match parser.parse_program() {
+        Ok(prog) => prog,
+        Err(e) => {
+            eprintln!("{} {}", "Parse error:".red().bold(), e);
+            for err in parser.errors() {
+                eprintln!("  {}", err);
+            }
+            std::process::exit(1);
+        }
+    };
+
+    if verbose {
+        println!("{} Parsed program '{}'", "Info:".cyan().bold(), program.name);
+    }
+
+    // Interpret
+    let mut interpreter = pascal::interpreter::Interpreter::new(verbose);
+    match interpreter.run_program(&program) {
+        Ok(()) => {
+            if verbose {
+                println!("\n{} Program finished", "Info:".cyan().bold());
+            }
+        }
+        Err(e) => {
+            eprintln!("\n{} {}", "Runtime error:".red().bold(), e);
+            std::process::exit(1);
+        }
+    }
+
     Ok(())
 }
 

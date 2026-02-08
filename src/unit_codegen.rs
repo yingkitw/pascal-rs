@@ -134,7 +134,6 @@ impl UnitCodeGenerator {
         writeln!(&mut self.output, "    push rbp")?;
         writeln!(&mut self.output, "    mov rbp, rsp")?;
 
-        // TODO: Generate function body from block
         for stmt in &func.block.statements {
             self.generate_statement(stmt)?;
         }
@@ -157,7 +156,6 @@ impl UnitCodeGenerator {
         writeln!(&mut self.output, "    push rbp")?;
         writeln!(&mut self.output, "    mov rbp, rsp")?;
 
-        // TODO: Generate procedure body from block
         for stmt in &proc.block.statements {
             self.generate_statement(stmt)?;
         }
@@ -173,12 +171,13 @@ impl UnitCodeGenerator {
     fn generate_statement(&mut self, stmt: &Stmt) -> Result<()> {
         match stmt {
             Stmt::Assignment { target, value } => {
-                // For now, assume target is a simple variable
-                writeln!(&mut self.output, "    # Assignment")?;
+                writeln!(&mut self.output, "    # Assignment to {}", target)?;
                 self.generate_expression(value)?;
+                let offset = self.get_variable_offset(target);
                 writeln!(
                     &mut self.output,
-                    "    # Store result (target handling TODO)"
+                    "    mov [rbp - {}], rax  # Store {}",
+                    offset, target
                 )?;
             }
             Stmt::If {
@@ -200,13 +199,27 @@ impl UnitCodeGenerator {
             } => {
                 self.generate_for(var_name, start, end, body)?;
             }
-            Stmt::Block(stmts) => {
-                for stmt in stmts {
+            Stmt::Block(block) => {
+                for stmt in &block.statements {
                     self.generate_statement(stmt)?;
                 }
             }
             Stmt::ProcedureCall { name, arguments } => {
                 self.generate_procedure_call(name, arguments)?;
+            }
+            Stmt::Repeat { body, until_condition } => {
+                let label_start = self.new_label("repeat_start");
+                writeln!(&mut self.output, "{}:", label_start)?;
+                for stmt in body {
+                    self.generate_statement(stmt)?;
+                }
+                self.generate_expression(until_condition)?;
+                writeln!(&mut self.output, "    test rax, rax")?;
+                writeln!(&mut self.output, "    jz {}", label_start)?;
+            }
+            Stmt::Empty => {}
+            _ => {
+                writeln!(&mut self.output, "    # Unsupported statement")?;
             }
         }
         Ok(())
@@ -378,14 +391,22 @@ impl UnitCodeGenerator {
                     offset, name
                 )?;
             }
-            Expr::BinaryOp { operator, left, right } => {
-                self.generate_binary_op(&operator, left, right)?;
+            Expr::BinaryOp {
+                operator,
+                left,
+                right,
+            } => {
+                self.generate_binary_op(operator, left, right)?;
             }
             Expr::UnaryOp { operator, operand } => {
-                self.generate_unary_op(&operator, operand)?;
+                self.generate_unary_op(operator, operand)?;
             }
             Expr::FunctionCall { name, arguments } => {
                 self.generate_function_call(name, arguments)?;
+            }
+            _ => {
+                writeln!(&mut self.output, "    # Unsupported expression")?;
+                writeln!(&mut self.output, "    xor rax, rax")?;
             }
         }
         Ok(())
@@ -418,17 +439,19 @@ impl UnitCodeGenerator {
             Literal::Nil => {
                 writeln!(&mut self.output, "    xor rax, rax  # nil")?;
             }
+            Literal::WideString(val) => {
+                writeln!(&mut self.output, "    # WideString literal: \"{}\"", val)?;
+                writeln!(&mut self.output, "    xor rax, rax  # TODO: WideString support")?;
+            }
+            Literal::Set(_) => {
+                writeln!(&mut self.output, "    xor rax, rax  # TODO: Set literal")?;
+            }
         }
         Ok(())
     }
 
     /// Generate binary operation
-    fn generate_binary_op(
-        &mut self,
-        op: &str,
-        left: &Box<Expr>,
-        right: &Box<Expr>,
-    ) -> Result<()> {
+    fn generate_binary_op(&mut self, op: &str, left: &Expr, right: &Expr) -> Result<()> {
         // Evaluate left operand
         self.generate_expression(left)?;
         writeln!(&mut self.output, "    push rax")?;
@@ -502,7 +525,7 @@ impl UnitCodeGenerator {
     }
 
     /// Generate unary operation
-    fn generate_unary_op(&mut self, op: &str, expr: &Box<Expr>) -> Result<()> {
+    fn generate_unary_op(&mut self, op: &str, expr: &Expr) -> Result<()> {
         self.generate_expression(expr)?;
 
         match op {
@@ -651,9 +674,9 @@ mod tests {
             uses: vec![],
             interface: UnitInterface {
                 uses: vec![],
-                types: HashMap::new(),
-                constants: HashMap::new(),
-                variables: HashMap::new(),
+                types: vec![],
+                constants: vec![],
+                variables: vec![],
                 procedures: vec![],
                 functions: vec![],
                 classes: vec![],

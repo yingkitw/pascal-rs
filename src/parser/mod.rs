@@ -1,9 +1,9 @@
 //! Robust recursive descent Pascal parser
 //! Supports full Pascal language with error recovery
 
+mod decl;
 mod expression;
 mod statement;
-mod decl;
 
 use crate::lexer::Lexer;
 use crate::tokens::Token;

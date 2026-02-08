@@ -1,9 +1,9 @@
 //! Statement parsing for the Pascal parser
 
-use crate::ast::{Block, Stmt};
+use crate::ast::{Block, CaseBranch, ForDirection, Stmt};
 use crate::parser::{ParseResult, Parser};
-use crate::ParseError;
 use crate::tokens::Token;
+use crate::ParseError;
 
 impl<'a> Parser<'a> {
     /// Parse a statement
@@ -14,6 +14,7 @@ impl<'a> Parser<'a> {
             Some(Token::While) => Some(self.parse_while_statement()?),
             Some(Token::For) => Some(self.parse_for_statement()?),
             Some(Token::Repeat) => Some(self.parse_repeat_statement()?),
+            Some(Token::Case) => Some(self.parse_case_statement()?),
             Some(Token::Begin) => Some(self.parse_begin_block()?),
             _ => None,
         })
@@ -21,53 +22,75 @@ impl<'a> Parser<'a> {
 
     /// Parse statement starting with identifier (assignment or call)
     fn parse_identifier_statement(&mut self) -> ParseResult<Option<Stmt>> {
-        let name = if let Some(Token::Identifier(n)) = self.current_token.take() {
+        let mut name = if let Some(Token::Identifier(n)) = self.current_token.take() {
             self.advance();
             n
         } else {
             unreachable!()
         };
 
+        // Handle dot notation for record field access: p.x, p.x.y, etc.
+        while self.check(Token::Dot) {
+            self.advance();
+            if let Some(Token::Identifier(field)) = self.peek() {
+                let field = field.clone();
+                self.advance();
+                name = format!("{}.{}", name, field);
+            } else {
+                break;
+            }
+        }
+
         if self.check(Token::ColonEquals) {
             // Assignment
             self.advance();
             if let Some(value) = self.parse_expression()? {
-                Ok(Some(Stmt::Assignment { target: name, value }))
+                Ok(Some(Stmt::Assignment {
+                    target: name,
+                    value,
+                }))
             } else {
                 Ok(None)
             }
         } else if self.check(Token::LeftParen) {
-            // Procedure call
+            // Procedure call with arguments
             self.advance();
             let args = self.parse_argument_list()?;
-            Ok(Some(Stmt::ProcedureCall { name, arguments: args }))
+            Ok(Some(Stmt::ProcedureCall {
+                name,
+                arguments: args,
+            }))
         } else {
-            Ok(None)
+            // Procedure call without arguments
+            Ok(Some(Stmt::ProcedureCall {
+                name,
+                arguments: vec![],
+            }))
         }
     }
 
     /// Parse if-then-else statement
     fn parse_if_statement(&mut self) -> ParseResult<Stmt> {
         self.advance();
-        let condition = self
-            .parse_expression()?
-            .ok_or(ParseError::UnexpectedToken("expected condition".to_string()))?;
+        let condition = self.parse_expression()?.ok_or(ParseError::UnexpectedToken(
+            "expected condition".to_string(),
+        ))?;
         self.consume_or_skip(Token::Then, &[Token::Begin]);
 
-        let _then_block = self.parse_statement_block()?;
+        let then_block = self.parse_statement_block()?;
 
         if self.check(Token::Else) {
             self.advance();
-            let _else_block = self.parse_statement_block()?;
+            let else_block = self.parse_statement_block()?;
             Ok(Stmt::If {
                 condition,
-                then_branch: vec![],
-                else_branch: Some(vec![]),
+                then_branch: then_block.statements,
+                else_branch: Some(else_block.statements),
             })
         } else {
             Ok(Stmt::If {
                 condition,
-                then_branch: vec![],
+                then_branch: then_block.statements,
                 else_branch: None,
             })
         }
@@ -76,16 +99,16 @@ impl<'a> Parser<'a> {
     /// Parse while loop statement
     fn parse_while_statement(&mut self) -> ParseResult<Stmt> {
         self.advance();
-        let condition = self
-            .parse_expression()?
-            .ok_or(ParseError::UnexpectedToken("expected condition".to_string()))?;
+        let condition = self.parse_expression()?.ok_or(ParseError::UnexpectedToken(
+            "expected condition".to_string(),
+        ))?;
         self.consume_or_skip(Token::Do, &[Token::Begin]);
 
-        let _block = self.parse_statement_block()?;
+        let block = self.parse_statement_block()?;
 
         Ok(Stmt::While {
             condition,
-            body: vec![],
+            body: block.statements,
         })
     }
 
@@ -103,23 +126,34 @@ impl<'a> Parser<'a> {
         };
 
         self.consume_or_skip(Token::ColonEquals, &[Token::To, Token::DownTo]);
-        let start = self
-            .parse_expression()?
-            .ok_or(ParseError::UnexpectedToken("expected start value".to_string()))?;
+        let start = self.parse_expression()?.ok_or(ParseError::UnexpectedToken(
+            "expected start value".to_string(),
+        ))?;
 
         let is_downto = self.check(Token::DownTo);
-        self.consume_or_skip(if is_downto { Token::DownTo } else { Token::To }, &[Token::Do]);
+        let direction = if is_downto {
+            ForDirection::DownTo
+        } else {
+            ForDirection::To
+        };
+        self.consume_or_skip(
+            if is_downto { Token::DownTo } else { Token::To },
+            &[Token::Do],
+        );
 
-        let _end = self
-            .parse_expression()?
-            .ok_or(ParseError::UnexpectedToken("expected end value".to_string()))?;
+        let end = self.parse_expression()?.ok_or(ParseError::UnexpectedToken(
+            "expected end value".to_string(),
+        ))?;
         self.consume_or_skip(Token::Do, &[Token::Begin]);
 
-        let _block = self.parse_statement_block()?;
+        let block = self.parse_statement_block()?;
 
-        Ok(Stmt::Assignment {
-            target: variable,
-            value: start,
+        Ok(Stmt::For {
+            var_name: variable,
+            start,
+            end,
+            direction,
+            body: block.statements,
         })
     }
 
@@ -127,37 +161,97 @@ impl<'a> Parser<'a> {
     fn parse_repeat_statement(&mut self) -> ParseResult<Stmt> {
         self.advance();
 
-        let _block = Block {
-            const_decls: std::collections::HashMap::new(),
-            type_decls: std::collections::HashMap::new(),
-            var_decls: std::collections::HashMap::new(),
-            statements: {
+        let mut stmts = Vec::new();
+        while !self.check(Token::Until) && self.peek().is_some() {
+            if let Some(stmt) = self.parse_statement()? {
+                stmts.push(stmt);
+            }
+            // Semicolons between statements in repeat block
+            if self.check(Token::Semicolon) {
+                self.advance();
+            }
+        }
+
+        self.consume_or_skip(Token::Until, &[Token::Semicolon]);
+        let condition = self.parse_expression()?.ok_or(ParseError::UnexpectedToken(
+            "expected condition".to_string(),
+        ))?;
+
+        Ok(Stmt::Repeat {
+            body: stmts,
+            until_condition: condition,
+        })
+    }
+
+    /// Parse case statement: case expr of value: stmt; ... else stmt; end
+    fn parse_case_statement(&mut self) -> ParseResult<Stmt> {
+        self.advance(); // consume 'case'
+        let expression = self.parse_expression()?.ok_or(ParseError::UnexpectedToken(
+            "expected case expression".to_string(),
+        ))?;
+        self.consume_or_skip(Token::Of, &[Token::End]);
+
+        let mut branches = Vec::new();
+        let mut else_branch = None;
+
+        while !self.check(Token::End) && self.peek().is_some() {
+            if self.check(Token::Else) {
+                self.advance();
+                // Parse else branch statements
                 let mut stmts = Vec::new();
-                while !self.check(Token::Until) {
+                while !self.check(Token::End) && !self.check(Token::Semicolon) && self.peek().is_some() {
                     if let Some(stmt) = self.parse_statement()? {
                         stmts.push(stmt);
                     }
-                    self.consume_or_skip(Token::Semicolon, &[Token::Until]);
+                    if self.check(Token::Semicolon) {
+                        self.advance();
+                    }
                 }
-                stmts
-            },
-        };
+                else_branch = Some(stmts);
+                break;
+            }
 
-        self.consume_or_skip(Token::Until, &[Token::Semicolon]);
-        let condition = self
-            .parse_expression()?
-            .ok_or(ParseError::UnexpectedToken("expected condition".to_string()))?;
+            // Parse case values (comma-separated expressions)
+            let mut values = Vec::new();
+            loop {
+                if let Some(val) = self.parse_expression()? {
+                    values.push(val);
+                }
+                if self.check(Token::Comma) {
+                    self.advance();
+                } else {
+                    break;
+                }
+            }
 
-        Ok(Stmt::While {
-            condition,
-            body: vec![],
+            self.consume_or_skip(Token::Colon, &[Token::End, Token::Semicolon]);
+
+            // Parse the branch body (single statement)
+            let mut body = Vec::new();
+            if let Some(stmt) = self.parse_statement()? {
+                body.push(stmt);
+            }
+
+            branches.push(CaseBranch { values, body });
+
+            if self.check(Token::Semicolon) {
+                self.advance();
+            }
+        }
+
+        self.consume_or_skip(Token::End, &[Token::Semicolon, Token::Dot]);
+
+        Ok(Stmt::Case {
+            expression,
+            branches,
+            else_branch,
         })
     }
 
     /// Parse begin...end block
     fn parse_begin_block(&mut self) -> ParseResult<Stmt> {
         let statements = self.parse_compound_statement()?;
-        Ok(Stmt::Block(statements))
+        Ok(Stmt::Block(Block::with_statements(statements)))
     }
 
     /// Parse compound statement: begin ... end
@@ -181,21 +275,11 @@ impl<'a> Parser<'a> {
     fn parse_statement_block(&mut self) -> ParseResult<Block> {
         Ok(if self.check(Token::Begin) {
             let statements = self.parse_compound_statement()?;
-            Block {
-                const_decls: std::collections::HashMap::new(),
-                type_decls: std::collections::HashMap::new(),
-                var_decls: std::collections::HashMap::new(),
-                statements,
-            }
+            Block::with_statements(statements)
         } else {
-            Block {
-                const_decls: std::collections::HashMap::new(),
-                type_decls: std::collections::HashMap::new(),
-                var_decls: std::collections::HashMap::new(),
-                statements: vec![self.parse_statement()?.ok_or(ParseError::UnexpectedToken(
-                    "expected statement".to_string(),
-                ))?],
-            }
+            Block::with_statements(vec![self.parse_statement()?.ok_or(
+                ParseError::UnexpectedToken("expected statement".to_string()),
+            )?])
         })
     }
 }
