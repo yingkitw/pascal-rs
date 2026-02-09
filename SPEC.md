@@ -42,8 +42,9 @@ The project is incrementally adding **Object Pascal** (Delphi/Lazarus) features:
 | `boolean` | ✅ | ✅ | ✅ |
 | `char` | ✅ | ✅ | ⚠️ partial |
 | `string` | ✅ | ✅ | ✅ |
-| `array[lo..hi] of T` | ✅ | ❌ | ⚠️ partial |
-| `record ... end` | ✅ | ❌ | ⚠️ partial |
+| `array` (dynamic) | ✅ | ✅ | ⚠️ partial |
+| `record ... end` | ✅ | ✅ | ⚠️ partial |
+| `object` (class instance) | ✅ | ✅ | ❌ |
 | `pointer ^T` | ✅ | ❌ | ❌ |
 | `set of T` | ✅ AST only | ❌ | ❌ |
 | `file of T` | ✅ AST only | ❌ | ❌ |
@@ -60,11 +61,14 @@ The project is incrementally adding **Object Pascal** (Delphi/Lazarus) features:
 | `case/of/else/end` | ✅ | ✅ |
 | `begin/end` block | ✅ | ✅ |
 | procedure call | ✅ | ✅ |
-| `record.field` access | ✅ | ❌ |
-| `try/except/finally` | ✅ | ❌ planned |
-| `raise` | ✅ | ❌ planned |
+| `record.field` access | ✅ | ✅ |
+| `obj.field` / `obj.Method()` | ✅ | ✅ |
+| `try/except/finally` | ✅ | ✅ |
+| `raise` | ✅ | ✅ |
+| `with` | ✅ | ✅ |
+| `exit` / `exit(value)` | ✅ | ✅ |
+| `break` | ✅ | ✅ |
 | `goto/label` | ✅ AST only | ❌ |
-| `with` | ✅ AST only | ❌ |
 
 ### Expressions
 
@@ -75,11 +79,13 @@ The project is incrementally adding **Object Pascal** (Delphi/Lazarus) features:
 | Logical: `and`, `or`, `not`, `xor` | ✅ | ✅ |
 | Bitwise: `shl`, `shr` | ✅ | ✅ |
 | String concatenation: `+` | ✅ | ✅ |
+| String indexing: `s[i]` | ✅ | ✅ |
+| Array indexing: `arr[i]` | ✅ | ✅ |
 | Unary: `-`, `+`, `not`, `@` | ✅ | ✅ (except `@`) |
 | Function calls | ✅ | ✅ |
 | Parenthesized `(expr)` | ✅ | ✅ |
-| `inherited` | ✅ AST only | ❌ planned |
-| `is` / `as` type checks | ✅ AST only | ❌ planned |
+| `inherited` | ✅ | ✅ |
+| `is` / `as` type checks | ✅ | ✅ |
 | `sizeof` | ✅ AST only | ❌ |
 
 ### Declarations
@@ -87,30 +93,34 @@ The project is incrementally adding **Object Pascal** (Delphi/Lazarus) features:
 | Declaration | Parser | Interpreter |
 |-------------|--------|-------------|
 | `program` header | ✅ | ✅ |
-| `uses` clause | ✅ | ❌ |
+| `uses` clause | ✅ | ✅ |
 | `const` section | ✅ | ✅ |
-| `type` section | ✅ | ❌ |
+| `type` section | ✅ | ⚠️ partial |
 | `var` section (comma names) | ✅ | ✅ |
 | `function` with params/return | ✅ | ✅ |
 | `procedure` with params | ✅ | ✅ |
+| nested functions/procedures | ✅ | ✅ |
 | `forward` declarations | ✅ | ❌ |
-| `unit` (interface/implementation) | ✅ | ❌ |
+| `unit` (interface/implementation) | ✅ | ✅ |
 
-### Object Pascal (In Progress)
+### Object Pascal
 
 | Feature | AST | Parser | Interpreter |
 |---------|-----|--------|-------------|
-| `class` declaration | ✅ | ✅ | ❌ planned |
-| `constructor`/`destructor` | ✅ | ✅ | ❌ planned |
-| `virtual`/`override`/`abstract` | ✅ | ✅ | ❌ planned |
-| `private`/`protected`/`public`/`published` | ✅ | ✅ | ❌ planned |
-| `property` with read/write | ✅ | ✅ | ❌ planned |
-| `interface` declarations | ✅ | ❌ | ❌ planned |
-| inheritance `class(TParent)` | ✅ | ✅ | ❌ planned |
-| `try/except/finally` | ✅ | ✅ | ❌ planned |
-| `raise` | ✅ | ✅ | ❌ planned |
-| object instantiation | ❌ | ❌ | ❌ planned |
-| method dispatch (vtable) | ❌ | ❌ | ❌ planned |
+| `class` declaration | ✅ | ✅ | ✅ |
+| `constructor`/`destructor` | ✅ | ✅ | ✅ |
+| `virtual`/`override`/`abstract` | ✅ | ✅ | ✅ |
+| `private`/`protected`/`public`/`published` | ✅ | ✅ | ⚠️ parsed, not enforced |
+| `property` with read/write | ✅ | ✅ | ✅ infrastructure |
+| `interface` declarations | ✅ | ❌ | ❌ |
+| inheritance `class(TParent)` | ✅ | ✅ | ✅ |
+| `try/except/finally` | ✅ | ✅ | ✅ |
+| `raise` | ✅ | ✅ | ✅ |
+| object instantiation (`ClassName.Create`) | ✅ | ✅ | ✅ |
+| method dispatch (vtable) | ✅ | ✅ | ✅ |
+| `is` / `as` type checks | ✅ | ✅ | ✅ |
+| `inherited` calls | ✅ | ✅ | ✅ |
+| inline class method bodies in `type` | ❌ | ❌ | N/A |
 
 ---
 
@@ -184,21 +194,14 @@ Pascal Source → Interpreter → SSE events → React/Carbon Web UI
 
 | Category | Count | Status |
 |----------|-------|--------|
-| Unit tests (lib) | 88 | ✅ All passing |
-| Integration tests | ~73 | ⚠️ Not all verified |
-
-### Verified Unit Test Modules
-- `interpreter` (11 tests) — arithmetic, control flow, functions
-- `parser` (14 tests) — programs, units, expressions, statements
-- `optimizer` (3 tests) — constant folding, DCE, algebraic simplification
-- `advanced_optimizer` (3 tests) — CSE, loop unrolling, strength reduction
-- `advanced_types` (3 tests) — generics, type inference, operator overloading
-- `loader` (8 tests) — module loading, caching, concurrency
-- `parallel` (16 tests) — parallel compilation, progress tracking
-- `register_allocator` (3 tests) — live ranges, graph coloring
-- `resolver` (3 tests) — symbol resolution
-- `simd` (3 tests) — SIMD codegen, calling conventions
-- `symbol_table` (3 tests) — scopes, constants
-- `type_checker` (2 tests) — literal types, binary ops
-- `unit_codegen` (2 tests) — empty unit generation
-- `utils` (8 tests) — AST helpers, block, string utils
+| Unit tests (lib) | 115 | ✅ All passing |
+| Example pipeline tests | 19 | ✅ All passing |
+| Compiler codegen tests | 10 | ✅ All passing |
+| Complex validation tests | 9 | ✅ All passing |
+| Integration tests | 10 | ✅ All passing |
+| Interpreter tests | 11 | ✅ All passing |
+| Simple compiler (parser) | 18 | ✅ All passing |
+| Simple interpreter | 13 | ✅ All passing |
+| Type checker | 10 | ✅ All passing |
+| Basic | 1 | ✅ All passing |
+| **Total** | **216** | **✅ All passing** |
