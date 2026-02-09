@@ -30,6 +30,15 @@ pub struct UnitCodeGenerator {
 
     /// Current unit name
     current_unit: Option<String>,
+
+    /// Stack frame size for current function
+    stack_size: i32,
+
+    /// Next available stack offset (for local variables)
+    next_stack_offset: i32,
+
+    /// Parameter offset tracking (starts at 16 for first param)
+    param_offset: i32,
 }
 
 #[derive(Debug, Clone)]
@@ -37,6 +46,7 @@ struct VariableInfo {
     offset: i32,
     typ: Type,
     is_exported: bool,
+    is_param: bool,
 }
 
 impl UnitCodeGenerator {
@@ -49,7 +59,77 @@ impl UnitCodeGenerator {
             exports: Vec::new(),
             imports: HashMap::new(),
             current_unit: None,
+            stack_size: 0,
+            next_stack_offset: 0,
+            param_offset: 16,
         }
+    }
+
+    /// Reset local variable state for new function
+    fn reset_local_state(&mut self) {
+        self.variables.clear();
+        self.stack_size = 0;
+        self.next_stack_offset = 0;
+        self.param_offset = 16;
+    }
+
+    /// Allocate space for a local variable on the stack
+    fn allocate_local(&mut self, name: String, typ: Type) -> i32 {
+        let size = self.get_type_size(&typ);
+        self.next_stack_offset += size;
+        self.stack_size = self.stack_size.max(self.next_stack_offset);
+
+        let offset = self.next_stack_offset;
+        self.variables.insert(name, VariableInfo {
+            offset,
+            typ,
+            is_exported: false,
+            is_param: false,
+        });
+
+        offset
+    }
+
+    /// Allocate space for a parameter (at fixed stack offset)
+    fn allocate_param(&mut self, name: String, typ: Type) -> i32 {
+        let offset = self.param_offset;
+        self.param_offset += 8; // Parameters are 8-byte aligned
+
+        self.variables.insert(name, VariableInfo {
+            offset,
+            typ,
+            is_exported: false,
+            is_param: true,
+        });
+
+        offset
+    }
+
+    /// Get the size of a type in bytes
+    fn get_type_size(&self, typ: &Type) -> i32 {
+        match typ {
+            Type::Simple(simple) => match simple {
+                SimpleType::Integer => 8,
+                SimpleType::Real => 8,
+                SimpleType::Boolean => 1,
+                SimpleType::Char => 1,
+                SimpleType::String => 256, // Default string size
+            },
+            Type::Integer => 8,
+            Type::Real => 8,
+            Type::Boolean => 1,
+            Type::Char => 1,
+            Type::String => 256,
+            Type::Array { .. } => 64, // Simplified
+            Type::Record { fields, .. } => fields.len() as i32 * 8,
+            Type::Pointer(_) => 8,
+            _ => 8,
+        }
+    }
+
+    /// Align stack size to 16-byte boundary
+    fn align_stack(&self, size: i32) -> i32 {
+        ((size + 15) / 16) * 16
     }
 
     /// Generate code for a unit
@@ -130,18 +210,72 @@ impl UnitCodeGenerator {
             return Ok(());
         }
 
+        // Reset local variable state
+        self.reset_local_state();
+
+        // Allocate parameters first
+        for param in &func.parameters {
+            self.allocate_param(param.name.clone(), param.param_type.clone());
+        }
+
+        // Allocate local variables
+        for var in &func.block.vars {
+            self.allocate_local(var.name.clone(), var.variable_type.clone());
+        }
+
         writeln!(&mut self.output, "{}:", func.name)?;
+        writeln!(&mut self.output, "    # Function prologue")?;
         writeln!(&mut self.output, "    push rbp")?;
         writeln!(&mut self.output, "    mov rbp, rsp")?;
 
+        // Allocate stack space for local variables
+        let aligned_size = self.align_stack(self.stack_size);
+        if aligned_size > 0 {
+            writeln!(&mut self.output, "    sub rsp, {}  # Allocate local variables", aligned_size)?;
+        }
+
+        writeln!(&mut self.output, "    # Function body")?;
+
+        // Generate function body statements
         for stmt in &func.block.statements {
             self.generate_statement(stmt)?;
         }
 
+        // Set default return value (if no explicit return)
+        writeln!(&mut self.output, "    # Default return value")?;
+        self.generate_default_return(&func.return_type)?;
+
+        writeln!(&mut self.output, "    # Function epilogue")?;
+        // Restore stack
+        if aligned_size > 0 {
+            writeln!(&mut self.output, "    add rsp, {}", aligned_size)?;
+        }
         writeln!(&mut self.output, "    pop rbp")?;
         writeln!(&mut self.output, "    ret")?;
         writeln!(&mut self.output)?;
 
+        Ok(())
+    }
+
+    /// Generate default return value for a function
+    fn generate_default_return(&mut self, ret_type: &Type) -> Result<()> {
+        match ret_type {
+            Type::Simple(SimpleType::Integer) => {
+                writeln!(&mut self.output, "    mov rax, 0  # Default integer return")?;
+            }
+            Type::Simple(SimpleType::Real) => {
+                writeln!(&mut self.output, "    pxor xmm0, xmm0  # Default real return")?;
+            }
+            Type::Simple(SimpleType::Boolean) => {
+                writeln!(&mut self.output, "    mov rax, 0  # Default boolean return (false)")?;
+            }
+            Type::Simple(SimpleType::Char) => {
+                writeln!(&mut self.output, "    mov rax, 0  # Default char return (#0)")?;
+            }
+            _ => {
+                writeln!(&mut self.output, "    xor rax, rax  # Default return")?;
+            }
+        }
         Ok(())
     }
 
@@ -152,14 +286,42 @@ impl UnitCodeGenerator {
             return Ok(());
         }
 
+        // Reset local variable state
+        self.reset_local_state();
+
+        // Allocate parameters first
+        for param in &proc.parameters {
+            self.allocate_param(param.name.clone(), param.param_type.clone());
+        }
+
+        // Allocate local variables
+        for var in &proc.block.vars {
+            self.allocate_local(var.name.clone(), var.variable_type.clone());
+        }
+
         writeln!(&mut self.output, "{}:", proc.name)?;
+        writeln!(&mut self.output, "    # Procedure prologue")?;
         writeln!(&mut self.output, "    push rbp")?;
         writeln!(&mut self.output, "    mov rbp, rsp")?;
 
+        // Allocate stack space for local variables
+        let aligned_size = self.align_stack(self.stack_size);
+        if aligned_size > 0 {
+            writeln!(&mut self.output, "    sub rsp, {}  # Allocate local variables", aligned_size)?;
+        }
+
+        writeln!(&mut self.output, "    # Procedure body")?;
+
+        // Generate procedure body statements
         for stmt in &proc.block.statements {
             self.generate_statement(stmt)?;
         }
 
+        writeln!(&mut self.output, "    # Procedure epilogue")?;
+        // Restore stack
+        if aligned_size > 0 {
+            writeln!(&mut self.output, "    add rsp, {}", aligned_size)?;
+        }
         writeln!(&mut self.output, "    pop rbp")?;
         writeln!(&mut self.output, "    ret")?;
         writeln!(&mut self.output)?;
@@ -172,13 +334,7 @@ impl UnitCodeGenerator {
         match stmt {
             Stmt::Assignment { target, value } => {
                 writeln!(&mut self.output, "    # Assignment to {}", target)?;
-                self.generate_expression(value)?;
-                let offset = self.get_variable_offset(target);
-                writeln!(
-                    &mut self.output,
-                    "    mov [rbp - {}], rax  # Store {}",
-                    offset, target
-                )?;
+                self.generate_assignment(target, value)?;
             }
             Stmt::If {
                 condition,
@@ -222,6 +378,43 @@ impl UnitCodeGenerator {
                 writeln!(&mut self.output, "    # Unsupported statement")?;
             }
         }
+        Ok(())
+    }
+
+    /// Generate assignment statement
+    fn generate_assignment(&mut self, target: &str, value: &Expr) -> Result<()> {
+        // Check if target is a float variable
+        let is_float_target = self
+            .variables
+            .get(target)
+            .map(|info| matches!(info.typ, Type::Simple(SimpleType::Real)))
+            .unwrap_or(false);
+
+        // Generate value expression
+        self.generate_expression(value)?;
+
+        let offset = self.get_variable_offset(target);
+
+        if is_float_target {
+            // Store float from xmm0
+            writeln!(
+                &mut self.output,
+                "    movq rax, xmm0  # Move float to rax for storage"
+            )?;
+            writeln!(
+                &mut self.output,
+                "    mov [rbp - {}], rax  # Store float {}",
+                offset, target
+            )?;
+        } else {
+            // Store integer from rax
+            writeln!(
+                &mut self.output,
+                "    mov [rbp - {}], rax  # Store {}",
+                offset, target
+            )?;
+        }
+
         Ok(())
     }
 
@@ -385,11 +578,30 @@ impl UnitCodeGenerator {
             }
             Expr::Variable(name) => {
                 let offset = self.get_variable_offset(name);
-                writeln!(
-                    &mut self.output,
-                    "    mov rax, [rbp - {}]  # Load {}",
-                    offset, name
-                )?;
+
+                // Check if variable is a float
+                let is_float = self
+                    .variables
+                    .get(name)
+                    .map(|info| matches!(info.typ, Type::Simple(SimpleType::Real)))
+                    .unwrap_or(false);
+
+                if is_float {
+                    // Load into xmm0 for float variables
+                    writeln!(
+                        &mut self.output,
+                        "    mov rax, [rbp - {}]  # Load float {}",
+                        offset, name
+                    )?;
+                    writeln!(&mut self.output, "    movq xmm0, rax  # Move to xmm0")?;
+                } else {
+                    // Load into rax for integer variables
+                    writeln!(
+                        &mut self.output,
+                        "    mov rax, [rbp - {}]  # Load {}",
+                        offset, name
+                    )?;
+                }
             }
             Expr::BinaryOp {
                 operator,
@@ -420,11 +632,11 @@ impl UnitCodeGenerator {
             }
             Literal::Real(val) => {
                 writeln!(&mut self.output, "    # Real literal: {}", val)?;
-                writeln!(&mut self.output, "    xor rax, rax  # TODO: Float support")?;
+                self.generate_float_literal(*val)?;
             }
             Literal::String(val) => {
                 writeln!(&mut self.output, "    # String literal: \"{}\"", val)?;
-                writeln!(&mut self.output, "    xor rax, rax  # TODO: String support")?;
+                self.generate_string_literal(val)?;
             }
             Literal::Boolean(val) => {
                 writeln!(
@@ -450,8 +662,74 @@ impl UnitCodeGenerator {
         Ok(())
     }
 
+    /// Generate string literal
+    fn generate_string_literal(&mut self, val: &str) -> Result<()> {
+        let label = self.new_label("str");
+        let len = val.len();
+        let escaped_bytes: String = val
+            .bytes()
+            .map(|b| format!("{:02x}", b))
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        // Emit string in data section
+        writeln!(&mut self.output, ".section .rodata")?;
+        writeln!(&mut self.output, "{}:", label)?;
+        writeln!(&mut self.output, "    .byte {}  # String length", len)?;
+        writeln!(&mut self.output, "    .byte {}  # String data", escaped_bytes)?;
+        writeln!(&mut self.output, ".section .text")?;
+
+        // Load string address into rax
+        writeln!(&mut self.output, "    lea rax, [rip + {}]  # Load string address", label)?;
+        Ok(())
+    }
+
+    /// Generate float literal using XMM registers
+    fn generate_float_literal(&mut self, val: f64) -> Result<()> {
+        // For float literals, we need to load them from memory
+        // In a real implementation, this would use a constant pool
+        writeln!(&mut self.output, "    movabs rax, {}  # Float bits (0x{:016x})", val.to_bits(), val.to_bits())?;
+        writeln!(&mut self.output, "    movq xmm0, rax")?;
+        Ok(())
+    }
+
     /// Generate binary operation
     fn generate_binary_op(&mut self, op: &str, left: &Expr, right: &Expr) -> Result<()> {
+        // Check for string concatenation
+        if op == "+" && (self.is_string_expression(left) || self.is_string_expression(right)) {
+            self.generate_string_concat(left, right)?;
+            return Ok(());
+        }
+
+        // Try to determine if this is a float operation
+        let is_float_op = self.is_float_expression(left) || self.is_float_expression(right);
+
+        if is_float_op {
+            self.generate_float_binary_op(op, left, right)?;
+        } else {
+            self.generate_int_binary_op(op, left, right)?;
+        }
+
+        Ok(())
+    }
+
+    /// Check if an expression produces a float value
+    fn is_float_expression(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::Literal(Literal::Real(_)) => true,
+            Expr::Variable(name) => {
+                if let Some(info) = self.variables.get(name) {
+                    matches!(info.typ, Type::Simple(SimpleType::Real)) || matches!(info.typ, Type::Real)
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+
+    /// Generate integer binary operation
+    fn generate_int_binary_op(&mut self, op: &str, left: &Expr, right: &Expr) -> Result<()> {
         // Evaluate left operand
         self.generate_expression(left)?;
         writeln!(&mut self.output, "    push rax")?;
@@ -524,13 +802,140 @@ impl UnitCodeGenerator {
         Ok(())
     }
 
+    /// Generate float binary operation using XMM registers
+    fn generate_float_binary_op(&mut self, op: &str, left: &Expr, right: &Expr) -> Result<()> {
+        // Evaluate left operand into xmm0
+        self.generate_expression(left)?;
+        writeln!(&mut self.output, "    movq rax, xmm0  # Move float result from xmm0")?;
+        writeln!(&mut self.output, "    push rax")?;
+
+        // Evaluate right operand into xmm0
+        self.generate_expression(right)?;
+
+        // Pop left operand into xmm1
+        writeln!(&mut self.output, "    pop rax")?;
+        writeln!(&mut self.output, "    movq xmm1, rax")?;
+
+        // Perform operation
+        match op {
+            "+" => {
+                writeln!(&mut self.output, "    addsd xmm0, xmm1  # Float add")?;
+            }
+            "-" => {
+                writeln!(&mut self.output, "    subsd xmm1, xmm0  # Float sub")?;
+                writeln!(&mut self.output, "    movq xmm0, xmm1")?;
+            }
+            "*" => {
+                writeln!(&mut self.output, "    mulsd xmm0, xmm1  # Float mul")?;
+            }
+            "/" => {
+                writeln!(&mut self.output, "    divsd xmm1, xmm0  # Float div")?;
+                writeln!(&mut self.output, "    movq xmm0, xmm1")?;
+            }
+            "=" => {
+                writeln!(&mut self.output, "    ucomisd xmm1, xmm0")?;
+                writeln!(&mut self.output, "    setnp al")?;
+                writeln!(&mut self.output, "    sete cl")?;
+                writeln!(&mut self.output, "    and al, cl")?;
+                writeln!(&mut self.output, "    movzx rax, al")?;
+            }
+            "<>" => {
+                writeln!(&mut self.output, "    ucomisd xmm1, xmm0")?;
+                writeln!(&mut self.output, "    setp al")?;
+                writeln!(&mut self.output, "    setne cl")?;
+                writeln!(&mut self.output, "    or al, cl")?;
+                writeln!(&mut self.output, "    movzx rax, al")?;
+            }
+            "<" => {
+                writeln!(&mut self.output, "    ucomisd xmm1, xmm0")?;
+                writeln!(&mut self.output, "    seta al")?;
+                writeln!(&mut self.output, "    movzx rax, al")?;
+            }
+            "<=" => {
+                writeln!(&mut self.output, "    ucomisd xmm1, xmm0")?;
+                writeln!(&mut self.output, "    setae al")?;
+                writeln!(&mut self.output, "    movzx rax, al")?;
+            }
+            ">" => {
+                writeln!(&mut self.output, "    ucomisd xmm0, xmm1")?;
+                writeln!(&mut self.output, "    seta al")?;
+                writeln!(&mut self.output, "    movzx rax, al")?;
+            }
+            ">=" => {
+                writeln!(&mut self.output, "    ucomisd xmm0, xmm1")?;
+                writeln!(&mut self.output, "    setae al")?;
+                writeln!(&mut self.output, "    movzx rax, al")?;
+            }
+            _ => {
+                writeln!(&mut self.output, "    # Unsupported float binary op: {}", op)?;
+                writeln!(&mut self.output, "    pxor xmm0, xmm0")?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Check if an expression produces a string value
+    fn is_string_expression(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::Literal(Literal::String(_)) => true,
+            Expr::Variable(name) => {
+                if let Some(info) = self.variables.get(name) {
+                    matches!(info.typ, Type::Simple(SimpleType::String)) || matches!(info.typ, Type::String)
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+
+    /// Generate string concatenation
+    fn generate_string_concat(&mut self, left: &Expr, right: &Expr) -> Result<()> {
+        writeln!(&mut self.output, "    # String concatenation")?;
+
+        // For now, this is a simplified implementation
+        // A real implementation would:
+        // 1. Calculate lengths of both strings
+        // 2. Allocate memory for the result
+        // 3. Copy both strings to the result
+        // 4. Return the result
+
+        self.generate_expression(left)?;
+        writeln!(&mut self.output, "    push rax  # Save left string address")?;
+
+        self.generate_expression(right)?;
+        writeln!(&mut self.output, "    mov rdx, rax  # Right string address")?;
+
+        writeln!(&mut self.output, "    pop rcx  # Left string address")?;
+
+        // Call runtime string concatenation function
+        writeln!(&mut self.output, ".extern _pascal_string_concat")?;
+        writeln!(&mut self.output, "    call _pascal_string_concat")?;
+
+        // Result is in rax
+        writeln!(&mut self.output, "    # String concatenation result in rax")?;
+
+        Ok(())
+    }
+
     /// Generate unary operation
     fn generate_unary_op(&mut self, op: &str, expr: &Expr) -> Result<()> {
+        // Check if this is a float operation
+        let is_float = self.is_float_expression(expr);
+
         self.generate_expression(expr)?;
 
         match op {
             "-" => {
-                writeln!(&mut self.output, "    neg rax")?;
+                if is_float {
+                    // Float negation using SSE
+                    writeln!(&mut self.output, "    mov rax, 0x8000000000000000  # Sign bit")?;
+                    writeln!(&mut self.output, "    movq xmm1, rax")?;
+                    writeln!(&mut self.output, "    xorpd xmm0, xmm1  # Negate float")?;
+                } else {
+                    writeln!(&mut self.output, "    neg rax")?;
+                }
             }
             "not" => {
                 writeln!(&mut self.output, "    test rax, rax")?;

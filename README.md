@@ -835,9 +835,3 @@ Source Code → Lexer → Tokens → Parser → AST
 - Built with Rust and Cargo
 - Uses modern compiler construction techniques
 - Benefits from the Rust community's expertise
-
----
-
-**Made with ❤️ in Rust**
-
-*Status: Active Development | Tests: 169/169 Passing | Language: Core Pascal Complete*

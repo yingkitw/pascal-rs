@@ -296,6 +296,7 @@ pub struct Block {
     pub vars: Vec<VariableDecl>,
     pub procedures: Vec<ProcedureDecl>,
     pub functions: Vec<FunctionDecl>,
+    pub classes: Vec<ClassDecl>,
     pub statements: Vec<Statement>,
 }
 
@@ -307,6 +308,7 @@ impl Block {
             vars: vec![],
             procedures: vec![],
             functions: vec![],
+            classes: vec![],
             statements: vec![],
         }
     }
@@ -318,6 +320,7 @@ impl Block {
             vars: vec![],
             procedures: vec![],
             functions: vec![],
+            classes: vec![],
             statements,
         }
     }

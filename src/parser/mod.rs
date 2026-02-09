@@ -12,12 +12,26 @@ use crate::ParseError;
 /// Result type for parsing operations
 pub type ParseResult<T> = Result<T, ParseError>;
 
+/// Source location for error reporting
+#[derive(Debug, Clone, Copy)]
+pub struct SourceLocation {
+    pub line: usize,
+    pub column: usize,
+    pub offset: usize,
+}
+
+impl std::fmt::Display for SourceLocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "line {}, column {}", self.line, self.column)
+    }
+}
+
 /// Main Pascal parser with error recovery
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
+    source: &'a str,
     current_token: Option<Token>,
-    _current_line: usize,
-    _current_col: usize,
+    current_location: SourceLocation,
     errors: Vec<ParseError>,
 }
 
@@ -25,28 +39,67 @@ impl<'a> Parser<'a> {
     /// Create a new parser for the given source
     pub fn new(source: &'a str) -> Self {
         let mut lexer = Lexer::new(source);
-        let current_token = Self::next_token_impl(&mut lexer);
+        let (current_token, location) = Self::next_token_with_loc(&mut lexer, source);
 
         Parser {
             lexer,
+            source,
             current_token,
-            _current_line: 1,
-            _current_col: 1,
+            current_location: location,
             errors: Vec::new(),
         }
     }
 
-    /// Internal token advance
-    fn next_token_impl(lexer: &mut Lexer) -> Option<Token> {
-        lexer
-            .next()
-            .and_then(|result| result.ok())
-            .map(|(_, token, _)| token)
+    /// Internal token advance with location tracking
+    fn next_token_with_loc(lexer: &mut Lexer, source: &str) -> (Option<Token>, SourceLocation) {
+        match lexer.next() {
+            Some(Ok((start, token, _end))) => {
+                let loc = Self::offset_to_location(source, start);
+                (Some(token), loc)
+            }
+            _ => (
+                None,
+                SourceLocation {
+                    line: 1,
+                    column: 1,
+                    offset: 0,
+                },
+            ),
+        }
+    }
+
+    /// Convert byte offset to line/column
+    fn offset_to_location(source: &str, offset: usize) -> SourceLocation {
+        let mut line = 1;
+        let mut col = 1;
+        for (i, ch) in source.char_indices() {
+            if i >= offset {
+                break;
+            }
+            if ch == '\n' {
+                line += 1;
+                col = 1;
+            } else {
+                col += 1;
+            }
+        }
+        SourceLocation {
+            line,
+            column: col,
+            offset,
+        }
+    }
+
+    /// Get current source location
+    pub fn location(&self) -> SourceLocation {
+        self.current_location
     }
 
     /// Advance to next token
     pub fn advance(&mut self) {
-        self.current_token = Self::next_token_impl(&mut self.lexer);
+        let (token, loc) = Self::next_token_with_loc(&mut self.lexer, self.source);
+        self.current_token = token;
+        self.current_location = loc;
     }
 
     /// Peek at current token
@@ -59,7 +112,7 @@ impl<'a> Parser<'a> {
         self.peek() == Some(&token)
     }
 
-    /// Consume token if it matches, otherwise error
+    /// Consume token if it matches, otherwise error with location
     pub fn consume(&mut self, expected: Token) -> ParseResult<Token> {
         if self.check(expected.clone()) {
             let token = self.current_token.take().unwrap();
@@ -70,9 +123,10 @@ impl<'a> Parser<'a> {
                 .peek()
                 .map(|t| format!("{:?}", t))
                 .unwrap_or_else(|| "EOF".to_string());
+            let loc = self.current_location;
             Err(ParseError::UnexpectedToken(format!(
-                "expected {:?}, found {}",
-                expected, found
+                "at {}: expected {:?}, found {}",
+                loc, expected, found
             )))
         }
     }

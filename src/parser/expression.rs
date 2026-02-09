@@ -100,14 +100,61 @@ impl<'a> Parser<'a> {
                 let name = name.clone();
                 self.advance();
 
-                if self.check(Token::LeftParen) {
+                let mut result = if self.check(Token::LeftParen) {
                     // Function call
                     self.advance();
                     let args = self.parse_argument_list()?;
-                    Some(call(&name, args))
+                    call(&name, args)
                 } else {
-                    Some(var(&name))
+                    var(&name)
+                };
+
+                // Handle dot-notation and bracket indexing
+                loop {
+                    if self.check(Token::Dot) {
+                        self.advance();
+                        if let Some(Token::Identifier(member)) = self.peek() {
+                            let member = member.clone();
+                            self.advance();
+                            let base_name = match &result {
+                                Expr::Variable(n) => n.clone(),
+                                _ => "self".to_string(),
+                            };
+                            let dotted = format!("{}.{}", base_name, member);
+                            if self.check(Token::LeftParen) {
+                                self.advance();
+                                let args = self.parse_argument_list()?;
+                                result = Expr::FunctionCall {
+                                    name: dotted,
+                                    arguments: args,
+                                };
+                            } else {
+                                result = var(&dotted);
+                            }
+                        } else {
+                            break;
+                        }
+                    } else if self.check(Token::LeftBracket) {
+                        // Array/string indexing: arr[i] or s[i]
+                        self.advance();
+                        let index = self.parse_expression()?;
+                        self.consume_or_skip(
+                            Token::RightBracket,
+                            &[Token::Semicolon, Token::End],
+                        );
+                        if let Some(idx_expr) = index {
+                            // Encode as FunctionCall "__index__(arr, i)"
+                            result = Expr::FunctionCall {
+                                name: "__index__".to_string(),
+                                arguments: vec![result, idx_expr],
+                            };
+                        }
+                    } else {
+                        break;
+                    }
                 }
+
+                Some(result)
             }
             Some(Token::IntegerLiteral(_))
             | Some(Token::RealLiteral(_))
