@@ -3,10 +3,9 @@
 pub mod advanced_optimizer;
 pub mod advanced_types;
 pub mod ast;
-pub mod enhanced_ast;
-pub mod enhanced_codegen;
-pub mod enhanced_tokens;
+pub mod build_system;
 pub mod error;
+pub mod interpreter;
 pub mod lexer;
 pub mod loader;
 #[cfg(feature = "mcp")]
@@ -25,21 +24,13 @@ pub mod type_checker;
 pub mod unit_codegen;
 pub mod utils;
 
-// Interpreter module with full implementation
-pub mod interpreter;
-
-// Modular interpreter components (for future use and traits)
-pub mod interpreter_value;
-pub mod interpreter_scope;
-pub mod interpreter_function;
-
-// Re-export key functionality
+// Re-export key types
 pub use ast::{
-    Block, Expression, ForDirection, FunctionDecl, Literal, Module, ModuleError, ModuleResult,
-    Parameter, ProcedureDecl, Program, SimpleType, Statement, Type, Unit,
+    Block, Expr, Expression, ForDirection, FunctionDecl, Literal, Module, ModuleError,
+    ModuleResult, Parameter, ProcedureDecl, Program, SimpleType, Statement, Stmt, Type, Unit,
 };
-pub use ast::{Expr, Stmt};
 pub use error::{CompileOptions, CompileResult, CompilerError, ParseError};
+pub use interpreter::Interpreter;
 pub use lexer::Lexer;
 pub use loader::ModuleLoader;
 #[cfg(feature = "mcp")]
@@ -50,13 +41,3 @@ pub use parallel::{ParallelCompiler, ParallelConfig, ProgressTracker};
 pub use resolver::{ModuleResolver, SymbolInfo, SymbolKind, SymbolTable};
 pub use tokens::Token;
 pub use unit_codegen::UnitCodeGenerator;
-pub use interpreter::Interpreter;
-
-// Modular interpreter components
-pub use interpreter_value::Value;
-pub use interpreter_scope::{Scope, ScopeStack};
-pub use interpreter_function::{UserFunction, FunctionRegistryImpl};
-
-// Interpreter traits for better maintainability
-pub mod interpreter_traits;
-pub use interpreter_traits::*;

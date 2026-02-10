@@ -1,14 +1,15 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
+use pascal::build_system::{BuildSystem, Manifest};
 use pascal::ppu::PpuFile;
 use pascal::ParallelConfig;
 use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "pascal")]
-#[command(about = "Pascal - A production-ready optimizing Pascal compiler")]
-#[command(version = "0.1.0")]
+#[command(about = "Pascal - A production-ready optimizing Pascal compiler and package manager")]
+#[command(version = "0.1.2")]
 #[command(author = "Pascal Team")]
 struct Cli {
     #[command(subcommand)]
@@ -17,6 +18,47 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Initialize a new Pascal project
+    Init {
+        /// Project name
+        name: String,
+
+        /// Directory to create the project in
+        #[arg(short, long, default_value = ".")]
+        dir: PathBuf,
+    },
+
+    /// Build the current project (requires pascal.toml)
+    Build {
+        /// Verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    /// Add a dependency to the project
+    Add {
+        /// Dependency name
+        name: String,
+
+        /// Version constraint
+        #[arg(short = 'V', long)]
+        version: Option<String>,
+
+        /// Local path to dependency
+        #[arg(long)]
+        path: Option<String>,
+
+        /// Git repository URL
+        #[arg(long)]
+        git: Option<String>,
+    },
+
+    /// Remove a dependency from the project
+    Remove {
+        /// Dependency name
+        name: String,
+    },
+
     /// Compile a Pascal source file
     Compile {
         /// Input Pascal file (unit or program)
@@ -69,10 +111,10 @@ enum Commands {
         ppu_file: PathBuf,
     },
 
-    /// Run a Pascal program (interpreter)
+    /// Run a Pascal program or project (interpreter)
     Run {
-        /// Input Pascal file
-        input: PathBuf,
+        /// Input Pascal file (optional if pascal.toml exists)
+        input: Option<PathBuf>,
 
         /// Verbose output
         #[arg(short, long)]
@@ -87,10 +129,43 @@ enum Commands {
     },
 }
 
+/// Find pascal.toml from cwd upward and open the build system.
+fn open_project(verbose: bool) -> Result<BuildSystem> {
+    let cwd = std::env::current_dir()?;
+    let manifest_path = Manifest::find(&cwd).ok_or_else(|| {
+        anyhow::anyhow!(
+            "No pascal.toml found in {} or any parent directory.\n\
+             Run `pascal init <name>` to create a new project.",
+            cwd.display()
+        )
+    })?;
+    let project_root = manifest_path.parent().unwrap();
+    BuildSystem::open(project_root, verbose)
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::Init { name, dir } => BuildSystem::init(&dir, &name),
+
+        Commands::Build { verbose } => open_project(verbose)?.build(),
+
+        Commands::Add {
+            name,
+            version,
+            path,
+            git,
+        } => {
+            let mut bs = open_project(false)?;
+            bs.add_dependency(&name, version.as_deref(), path.as_deref(), git.as_deref())
+        }
+
+        Commands::Remove { name } => {
+            let mut bs = open_project(false)?;
+            bs.remove_dependency(&name)
+        }
+
         Commands::Compile {
             input,
             output,
@@ -116,8 +191,17 @@ fn main() -> Result<()> {
             parallel,
             threads,
         ),
+
         Commands::Info { ppu_file } => show_ppu_info(ppu_file),
-        Commands::Run { input, verbose } => run_file(input, verbose),
+
+        Commands::Run { input, verbose } => {
+            if let Some(file) = input {
+                run_file(file, verbose)
+            } else {
+                open_project(verbose)?.run()
+            }
+        }
+
         Commands::Clean { directory } => clean_directory(directory),
     }
 }

@@ -1,6 +1,6 @@
 # pascal-rs — A Modern Pascal Compiler & Interpreter in Rust
 
-**pascal-rs** is a Pascal compiler and tree-walking interpreter written in Rust. It supports standard Pascal and a growing subset of Object Pascal (classes, exceptions, inheritance, virtual dispatch), backed by 216 automated tests and 10 runnable example programs.
+**pascal-rs** is a Pascal compiler, interpreter, and package manager written in Rust. It supports standard Pascal and a growing subset of Object Pascal (classes, exceptions, inheritance, virtual dispatch), with a modern `cargo`/`npm`-style build system (`pascal.toml`), backed by 228 automated tests and 10 runnable example programs.
 
 ---
 
@@ -8,10 +8,11 @@
 
 | Metric | Value |
 |--------|-------|
-| **Tests** | 216 passing (115 unit + 101 integration) |
+| **Tests** | 228 passing (127 unit + 101 integration) |
 | **Language** | Standard Pascal + Object Pascal subset |
 | **Interpreter** | Full-featured tree-walking execution |
 | **Compiler** | x86-64 assembly generation with optimizations |
+| **Build System** | `pascal.toml` manifest, dependency management, lock file |
 | **Edition** | Rust 2024 |
 
 ---
@@ -40,6 +41,18 @@ The interpreter now supports core Object Pascal features at the AST/runtime leve
 - **`with` statement** — pushes object/record fields into scope
 - **`uses` clause** — loads and imports `.pas` unit files
 - **Nested functions** — proper scoping for functions declared inside functions
+
+### Build System & Package Manager
+
+A modern `cargo`/`npm`-style project management system:
+
+- **`pascal init <name>`** — scaffold a new project with `pascal.toml`, `src/`, `tests/`, `examples/`
+- **`pascal build`** — compile all units in dependency order (topological sort)
+- **`pascal run`** — run the project's main program (or `pascal run file.pas` for single files)
+- **`pascal add <dep>`** — add a dependency (version, `--path`, or `--git`)
+- **`pascal remove <dep>`** — remove a dependency
+- **`pascal.toml`** — project manifest (package metadata, dependencies, build config)
+- **`pascal.lock`** — reproducible builds with SHA-256 checksums
 
 ### Parser Improvements
 
@@ -79,7 +92,8 @@ Validated end-to-end (source → lexer → parser → interpreter):
 |---|---|---|---|---|
 | **Implementation language** | Rust (memory-safe) | Object Pascal/C | C++ | C |
 | **Interpreter mode** | Built-in tree-walker | No | No | No |
-| **Test suite** | 216 automated tests | Large but external | Proprietary | Minimal |
+| **Package manager** | Built-in (`pascal.toml`) | No | No | No |
+| **Test suite** | 228 automated tests | Large but external | Proprietary | Minimal |
 | **Object Pascal** | Subset (classes, exceptions, virtual) | Full | Full | Partial |
 | **Trait-based design** | Yes — testable, extensible | No | No | No |
 | **Error messages** | Line/column, colored | Basic | Good | Basic |
@@ -114,10 +128,36 @@ cd pascal-rs
 cargo build --release
 ```
 
-### Run a Program
+### Create a Project
 
 ```bash
-# Interpret directly (no assembly step)
+# Scaffold a new project
+./target/release/pascal init myapp
+cd myapp
+
+# Build all units in dependency order
+./target/release/pascal build
+
+# Run the project
+./target/release/pascal run
+```
+
+This creates:
+```
+myapp/
+├── pascal.toml          # Project manifest
+├── src/
+│   └── myapp.pas        # Main program
+├── tests/
+├── examples/
+├── .gitignore
+└── README.md
+```
+
+### Run a Single File
+
+```bash
+# Interpret directly (no project needed)
 ./target/release/pascal run examples/01_basics.pas
 
 # Compile to x86-64 assembly
@@ -131,7 +171,7 @@ cargo test
 ```
 
 ```
-test result: ok. 216 passed; 0 failed; 0 ignored
+test result: ok. 228 passed; 0 failed; 0 ignored
 ```
 
 ---
@@ -142,12 +182,70 @@ test result: ok. 216 passed; 0 failed; 0 ignored
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `run` | Interpret a Pascal program | `pascal run prog.pas` |
-| `compile` | Compile to assembly | `pascal compile prog.pas -S` |
+| `init` | Create a new project | `pascal init myapp` |
+| `build` | Build the current project | `pascal build` |
+| `run` | Run a program or project | `pascal run` / `pascal run file.pas` |
+| `add` | Add a dependency | `pascal add mathlib` |
+| `remove` | Remove a dependency | `pascal remove mathlib` |
+| `compile` | Compile a single file | `pascal compile prog.pas -S` |
 | `info` | Inspect a PPU file | `pascal info module.ppu` |
 | `clean` | Remove build artifacts | `pascal clean` |
 
-### Options
+### Project Management
+
+```bash
+# Create a new project
+pascal init calculator
+cd calculator
+
+# Add dependencies
+pascal add mathlib -V "1.0"
+pascal add utils --path "../shared/utils"
+pascal add network --git "https://github.com/example/network.git"
+
+# Remove a dependency
+pascal remove network
+
+# Build (compiles all units in dependency order)
+pascal build
+pascal build -v    # verbose
+
+# Run the project's main program
+pascal run
+```
+
+### pascal.toml
+
+```toml
+[package]
+name = "calculator"
+version = "0.2.0"
+description = "A calculator app"
+authors = ["Alice"]
+license = "MIT"
+src = "src"
+main = "calculator.pas"
+
+[dependencies]
+mathlib = "1.0"
+utils = { path = "../shared/utils" }
+network = { git = "https://github.com/example/network.git", branch = "main" }
+
+[build]
+optimization = 2
+output = "build"
+```
+
+### Single-File Mode
+
+```bash
+pascal run program.pas        # Interpret directly
+pascal run program.pas -v     # With trace output
+pascal compile program.pas -S # Emit x86-64 assembly
+pascal compile program.pas -O2 -o build
+```
+
+### Compile Options
 
 | Option | Description |
 |--------|-------------|
@@ -158,34 +256,6 @@ test result: ok. 216 passed; 0 failed; 0 ignored
 | `-d, --debug` | Debug information |
 | `-I, --include <DIR>` | Add unit search path |
 | `--no-cache` | Disable PPU caching |
-
-### Interpreter Mode
-
-The interpreter runs Pascal programs directly without an assembly/linking step:
-
-```bash
-pascal run program.pas        # Run
-pascal run program.pas -v     # Run with trace output
-```
-
-### Compilation Mode
-
-```bash
-pascal compile program.pas          # Compile
-pascal compile program.pas -S       # Emit assembly
-pascal compile program.pas -O2      # Optimize
-pascal compile program.pas -o build # Output to directory
-```
-
-### Unit System
-
-```bash
-# Compile a unit
-pascal compile MathUtils.pas -v
-
-# Use it from a program
-pascal run Calculator.pas    # uses MathUtils;
-```
 
 ---
 
@@ -415,6 +485,7 @@ pascal-rs/
 │   │   └── decl.rs             # Declaration parsing (var, type, class, function)
 │   ├── ast.rs                  # AST node definitions
 │   ├── interpreter.rs          # Tree-walking interpreter (Object Pascal support)
+│   ├── build_system.rs         # Package manager & build system (pascal.toml)
 │   ├── type_checker.rs         # Type validation
 │   ├── optimizer.rs            # Optimization passes
 │   ├── unit_codegen.rs         # x86-64 code generation
@@ -446,8 +517,8 @@ pascal-rs/
 ## Testing
 
 ```bash
-cargo test                                        # All 216 tests
-cargo test --lib                                  # 115 unit tests
+cargo test                                        # All 228 tests
+cargo test --lib                                  # 127 unit tests
 cargo test --test run_example_tests               # 19 example pipeline tests
 cargo test --test run_integration_tests           # 10 integration tests
 cargo test --test run_compiler_tests              # 10 codegen tests
@@ -461,8 +532,8 @@ cargo test --test run_type_checker_tests          # 10 type checker tests
 ### Test Breakdown
 
 ```
-Library (unit tests)        115
-Example pipeline tests       19  ← NEW: validates 10 examples end-to-end
+Library (unit tests)        127  (includes 12 build system tests)
+Example pipeline tests       19
 Compiler codegen tests       10
 Complex validation            9
 Integration tests            10
@@ -472,7 +543,7 @@ Simple interpreter           13
 Type checker                 10
 Basic                         1
 ─────────────────────────────────
-Total                       216
+Total                       228
 ```
 
 ---
@@ -482,7 +553,6 @@ Total                       216
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** — module design and data flow
 - **[SPEC.md](SPEC.md)** — language feature matrix (parser/interpreter/codegen status)
 - **[TODO.md](TODO.md)** — development roadmap and completed phases
-- **[TRAIT_ARCHITECTURE.md](TRAIT_ARCHITECTURE.md)** — trait-based design guide
 
 ---
 
@@ -503,4 +573,4 @@ Apache-2.0
 
 ---
 
-**Made with Rust** — *216 tests passing | Standard Pascal + Object Pascal subset | Compiler + Interpreter*
+**Made with Rust** — *228 tests passing | Standard Pascal + Object Pascal subset | Compiler + Interpreter + Package Manager*

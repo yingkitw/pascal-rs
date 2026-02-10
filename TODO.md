@@ -2,9 +2,11 @@
 
 ## Current Status
 
-**115 unit tests + 19 example integration tests + 82 other integration tests = 216 total tests passing.** Build clean.
+**127 unit tests + 19 example integration tests + 82 other integration tests = 228 total tests passing.** Build clean.
 
 Interpreter supports standard Pascal + full Object Pascal (classes, exceptions, inheritance, virtual dispatch, properties, arrays, records, string indexing, with, exit, uses, nested functions).
+
+Build system with `pascal.toml` manifest, dependency management, lock file, and topological build ordering.
 
 10 example programs at varying complexity levels validate the full pipeline (source → lexer → parser → interpreter).
 
@@ -68,17 +70,36 @@ Interpreter supports standard Pascal + full Object Pascal (classes, exceptions, 
 
 ---
 
+## Phase 4: Build System & Package Manager ✅ DONE
+
+- [x] `pascal.toml` manifest format (package, dependencies, build config)
+- [x] `pascal init <name>` — scaffold project (pascal.toml, src/, tests/, examples/)
+- [x] `pascal build` — compile all units in dependency order (topological sort)
+- [x] `pascal run` — project mode (find pascal.toml, run main) + single-file mode
+- [x] `pascal add <dep>` — add dependency (version, --path, --git)
+- [x] `pascal remove <dep>` — remove dependency
+- [x] `pascal.lock` — lock file with SHA-256 checksums
+- [x] Path-based dependency resolution
+- [x] `uses` clause extraction for build ordering
+- [x] Circular dependency detection
+- [x] 12 tests (manifest, lock file, init, build, add/remove, topo sort)
+
+---
+
 ## Future Work
 
 - [ ] CI/CD pipeline
 - [ ] Benchmark suite vs. FPC
 - [ ] LSP server for IDE integration
 - [ ] REPL mode
+- [ ] Package registry (fetch deps from URL)
+- [ ] Git dependency fetching
 - [ ] Array element assignment (`arr[i] := val`)
 - [ ] Multi-dimensional arrays
 - [ ] Enum types in interpreter
 - [ ] Set operations in interpreter
 - [ ] Pointer/reference support
+- [ ] Inline class method bodies in parser
 
 ---
 
@@ -92,5 +113,6 @@ Interpreter supports standard Pascal + full Object Pascal (classes, exceptions, 
 - [x] Optimizer (constant folding, DCE, CSE, inlining, loop unrolling, strength reduction)
 - [x] Type checker (basic validation, function signatures)
 - [x] Module system (units, PPU files, parallel compilation)
-- [x] CLI (compile, run, info, clean)
-- [x] 115 unit tests passing
+- [x] CLI (init, build, run, add, remove, compile, info, clean)
+- [x] Build system (pascal.toml, pascal.lock, dependency management)
+- [x] 228 tests passing

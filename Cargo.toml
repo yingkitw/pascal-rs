@@ -1,13 +1,13 @@
 [package]
 name = "pascal"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 authors = ["Ying Kit WONG"]
 license = "Apache-2.0"
 repository = "https://github.com/yingkitw/pascal-rs"
-keywords = ["compiler", "pascal", "education", "mcp"]
+keywords = ["compiler", "pascal", "build", "intepreter", "package manager"]
 categories = ["command-line-utilities", "compilers"]
-description = "A Pascal compiler in rust implementation with MCP support"
+description = "A modern Pascal compiler with build/intepreter/package manager built with Rust"
 documentation = "https://docs.rs/pascal"
 homepage = "https://github.com/yingkitw/pascal-rs"
 
@@ -26,9 +26,11 @@ anyhow = "1.0"
 thiserror = "2.0"
 logos = "0.15"
 serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
 bincode = "1.3"
 rayon = "1.10"
 rmcp = "0.14"
+sha2 = "0.10"
 
 # CLI output
 colored = "2.1"
