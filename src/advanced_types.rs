@@ -155,7 +155,11 @@ impl TypeInference {
                 }
             }
 
-            Expr::BinaryOp { operator, left, right } => {
+            Expr::BinaryOp {
+                operator,
+                left,
+                right,
+            } => {
                 let left_type = self.infer_expr(left)?;
                 let right_type = self.infer_expr(right)?;
 

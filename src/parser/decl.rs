@@ -1,6 +1,10 @@
 //! Declaration parsing for the Pascal parser
 
-use crate::ast::{Block, FunctionDecl, Parameter, ProcedureDecl, SimpleType, Type, VariableDecl, FieldVisibility, Unit, UnitInterface, UnitImplementation, ClassDecl, TypeDecl, ConstDecl, FieldDecl, MethodDecl, PropertyDecl};
+use crate::ast::{
+    Block, ClassDecl, ConstDecl, FieldDecl, FieldVisibility, FunctionDecl, MethodDecl, Parameter,
+    ProcedureDecl, PropertyDecl, SimpleType, Type, TypeDecl, Unit, UnitImplementation,
+    UnitInterface, VariableDecl,
+};
 use crate::parser::{ParseResult, Parser};
 use crate::tokens::Token;
 use crate::ParseError;
@@ -184,7 +188,9 @@ impl<'a> Parser<'a> {
                     }
                     self.consume_or_skip(Token::Colon, &[Token::Begin]);
 
-                    let var_type = self.parse_type().unwrap_or(Type::Simple(SimpleType::Integer));
+                    let var_type = self
+                        .parse_type()
+                        .unwrap_or(Type::Simple(SimpleType::Integer));
 
                     for name in names {
                         vars.push(VariableDecl {
@@ -247,7 +253,15 @@ impl<'a> Parser<'a> {
                     while let Some(Token::Identifier(name)) = self.peek() {
                         let name = name.clone();
                         self.advance();
-                        self.consume_or_skip(Token::Equal, &[Token::Var, Token::Procedure, Token::Function, Token::Implementation]);
+                        self.consume_or_skip(
+                            Token::Equal,
+                            &[
+                                Token::Var,
+                                Token::Procedure,
+                                Token::Function,
+                                Token::Implementation,
+                            ],
+                        );
 
                         if let Ok(type_def) = self.parse_type() {
                             types.push(TypeDecl {
@@ -257,7 +271,10 @@ impl<'a> Parser<'a> {
                             });
                         }
 
-                        self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Implementation]);
+                        self.consume_or_skip(
+                            Token::Semicolon,
+                            &[Token::Procedure, Token::Function, Token::Implementation],
+                        );
                     }
                 }
                 Some(Token::Const) => {
@@ -265,7 +282,15 @@ impl<'a> Parser<'a> {
                     while let Some(Token::Identifier(name)) = self.peek() {
                         let name = name.clone();
                         self.advance();
-                        self.consume_or_skip(Token::Equal, &[Token::Var, Token::Procedure, Token::Function, Token::Implementation]);
+                        self.consume_or_skip(
+                            Token::Equal,
+                            &[
+                                Token::Var,
+                                Token::Procedure,
+                                Token::Function,
+                                Token::Implementation,
+                            ],
+                        );
 
                         if let Some(literal) = self.parse_literal_int()? {
                             constants.push(ConstDecl {
@@ -275,7 +300,10 @@ impl<'a> Parser<'a> {
                             });
                         }
 
-                        self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Implementation]);
+                        self.consume_or_skip(
+                            Token::Semicolon,
+                            &[Token::Procedure, Token::Function, Token::Implementation],
+                        );
                     }
                 }
                 Some(Token::Var) => {
@@ -293,9 +321,14 @@ impl<'a> Parser<'a> {
                                 break;
                             }
                         }
-                        self.consume_or_skip(Token::Colon, &[Token::Procedure, Token::Function, Token::Implementation]);
+                        self.consume_or_skip(
+                            Token::Colon,
+                            &[Token::Procedure, Token::Function, Token::Implementation],
+                        );
 
-                        let var_type = self.parse_type().unwrap_or(Type::Simple(SimpleType::Integer));
+                        let var_type = self
+                            .parse_type()
+                            .unwrap_or(Type::Simple(SimpleType::Integer));
 
                         for name in names {
                             variables.push(VariableDecl {
@@ -308,7 +341,10 @@ impl<'a> Parser<'a> {
                             });
                         }
 
-                        self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Implementation]);
+                        self.consume_or_skip(
+                            Token::Semicolon,
+                            &[Token::Procedure, Token::Function, Token::Implementation],
+                        );
                     }
                 }
                 Some(Token::Procedure) => {
@@ -326,7 +362,10 @@ impl<'a> Parser<'a> {
                     if let Ok(class) = self.parse_class_decl() {
                         classes.push(class);
                     }
-                    self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Implementation]);
+                    self.consume_or_skip(
+                        Token::Semicolon,
+                        &[Token::Procedure, Token::Function, Token::Implementation],
+                    );
                 }
                 Some(Token::Implementation) => {
                     break;
@@ -357,11 +396,18 @@ impl<'a> Parser<'a> {
                 self.advance();
                 n
             }
-            _ => return Err(ParseError::UnexpectedToken("expected procedure name".to_string())),
+            _ => {
+                return Err(ParseError::UnexpectedToken(
+                    "expected procedure name".to_string(),
+                ))
+            }
         };
 
         let parameters = self.parse_parameters()?;
-        self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Implementation]);
+        self.consume_or_skip(
+            Token::Semicolon,
+            &[Token::Procedure, Token::Function, Token::Implementation],
+        );
 
         Ok(ProcedureDecl {
             name,
@@ -371,7 +417,7 @@ impl<'a> Parser<'a> {
             is_external: false,
             external_name: None,
             is_inline: false,
-            is_forward: true,  // Interface declarations are forward
+            is_forward: true, // Interface declarations are forward
             is_class_method: false,
             is_virtual: false,
             is_override: false,
@@ -387,15 +433,24 @@ impl<'a> Parser<'a> {
                 self.advance();
                 n
             }
-            _ => return Err(ParseError::UnexpectedToken("expected function name".to_string())),
+            _ => {
+                return Err(ParseError::UnexpectedToken(
+                    "expected function name".to_string(),
+                ))
+            }
         };
 
         let parameters = self.parse_parameters()?;
 
         // Parse return type: ': type'
         self.consume_or_skip(Token::Colon, &[Token::Semicolon, Token::Implementation]);
-        let return_type = self.parse_type().unwrap_or(Type::Simple(SimpleType::Integer));
-        self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Implementation]);
+        let return_type = self
+            .parse_type()
+            .unwrap_or(Type::Simple(SimpleType::Integer));
+        self.consume_or_skip(
+            Token::Semicolon,
+            &[Token::Procedure, Token::Function, Token::Implementation],
+        );
 
         Ok(FunctionDecl {
             name,
@@ -406,7 +461,7 @@ impl<'a> Parser<'a> {
             is_external: false,
             external_name: None,
             is_inline: false,
-            is_forward: true,  // Interface declarations are forward
+            is_forward: true, // Interface declarations are forward
             is_class_method: false,
             is_virtual: false,
             is_override: false,
@@ -438,7 +493,10 @@ impl<'a> Parser<'a> {
                     while let Some(Token::Identifier(name)) = self.peek() {
                         let name = name.clone();
                         self.advance();
-                        self.consume_or_skip(Token::Equal, &[Token::Var, Token::Procedure, Token::Function, Token::Begin]);
+                        self.consume_or_skip(
+                            Token::Equal,
+                            &[Token::Var, Token::Procedure, Token::Function, Token::Begin],
+                        );
 
                         if let Ok(type_def) = self.parse_type() {
                             types.push(TypeDecl {
@@ -448,7 +506,10 @@ impl<'a> Parser<'a> {
                             });
                         }
 
-                        self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Begin]);
+                        self.consume_or_skip(
+                            Token::Semicolon,
+                            &[Token::Procedure, Token::Function, Token::Begin],
+                        );
                     }
                 }
                 Some(Token::Const) => {
@@ -456,7 +517,10 @@ impl<'a> Parser<'a> {
                     while let Some(Token::Identifier(name)) = self.peek() {
                         let name = name.clone();
                         self.advance();
-                        self.consume_or_skip(Token::Equal, &[Token::Var, Token::Procedure, Token::Function, Token::Begin]);
+                        self.consume_or_skip(
+                            Token::Equal,
+                            &[Token::Var, Token::Procedure, Token::Function, Token::Begin],
+                        );
 
                         if let Some(literal) = self.parse_literal_int()? {
                             constants.push(ConstDecl {
@@ -466,7 +530,10 @@ impl<'a> Parser<'a> {
                             });
                         }
 
-                        self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Begin]);
+                        self.consume_or_skip(
+                            Token::Semicolon,
+                            &[Token::Procedure, Token::Function, Token::Begin],
+                        );
                     }
                 }
                 Some(Token::Var) => {
@@ -484,9 +551,14 @@ impl<'a> Parser<'a> {
                                 break;
                             }
                         }
-                        self.consume_or_skip(Token::Colon, &[Token::Procedure, Token::Function, Token::Begin]);
+                        self.consume_or_skip(
+                            Token::Colon,
+                            &[Token::Procedure, Token::Function, Token::Begin],
+                        );
 
-                        let var_type = self.parse_type().unwrap_or(Type::Simple(SimpleType::Integer));
+                        let var_type = self
+                            .parse_type()
+                            .unwrap_or(Type::Simple(SimpleType::Integer));
 
                         for name in names {
                             variables.push(VariableDecl {
@@ -499,7 +571,10 @@ impl<'a> Parser<'a> {
                             });
                         }
 
-                        self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Begin]);
+                        self.consume_or_skip(
+                            Token::Semicolon,
+                            &[Token::Procedure, Token::Function, Token::Begin],
+                        );
                     }
                 }
                 Some(Token::Procedure) => {
@@ -517,7 +592,10 @@ impl<'a> Parser<'a> {
                     if let Ok(class) = self.parse_class_decl() {
                         classes.push(class);
                     }
-                    self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Begin]);
+                    self.consume_or_skip(
+                        Token::Semicolon,
+                        &[Token::Procedure, Token::Function, Token::Begin],
+                    );
                 }
                 Some(Token::Begin) => {
                     // Initialization section
@@ -586,7 +664,11 @@ impl<'a> Parser<'a> {
                 self.advance();
                 n
             }
-            _ => return Err(ParseError::UnexpectedToken("expected class name".to_string())),
+            _ => {
+                return Err(ParseError::UnexpectedToken(
+                    "expected class name".to_string(),
+                ))
+            }
         };
 
         // Parse '= class' (the '=' was already consumed by the type section parser)
@@ -612,7 +694,16 @@ impl<'a> Parser<'a> {
                     iface_list.push(n);
                 }
             }
-            self.consume_or_skip(Token::RightParen, &[Token::End, Token::Private, Token::Public, Token::Protected, Token::Published]);
+            self.consume_or_skip(
+                Token::RightParen,
+                &[
+                    Token::End,
+                    Token::Private,
+                    Token::Public,
+                    Token::Protected,
+                    Token::Published,
+                ],
+            );
         }
 
         let mut fields = vec![];
@@ -625,32 +716,63 @@ impl<'a> Parser<'a> {
         while !self.check(Token::End) && self.peek().is_some() {
             match self.peek() {
                 // Visibility sections
-                Some(Token::Private) => { self.advance(); current_visibility = FieldVisibility::Private; }
-                Some(Token::Protected) => { self.advance(); current_visibility = FieldVisibility::Protected; }
-                Some(Token::Public) => { self.advance(); current_visibility = FieldVisibility::Public; }
-                Some(Token::Published) => { self.advance(); current_visibility = FieldVisibility::Published; }
+                Some(Token::Private) => {
+                    self.advance();
+                    current_visibility = FieldVisibility::Private;
+                }
+                Some(Token::Protected) => {
+                    self.advance();
+                    current_visibility = FieldVisibility::Protected;
+                }
+                Some(Token::Public) => {
+                    self.advance();
+                    current_visibility = FieldVisibility::Public;
+                }
+                Some(Token::Published) => {
+                    self.advance();
+                    current_visibility = FieldVisibility::Published;
+                }
 
                 // Constructor
                 Some(Token::Constructor) => {
                     self.advance();
-                    let method = self.parse_class_method(current_visibility.clone(), true, false)?;
+                    let method =
+                        self.parse_class_method(current_visibility.clone(), true, false)?;
                     methods.push(method);
                 }
                 // Destructor
                 Some(Token::Destructor) => {
                     self.advance();
-                    let method = self.parse_class_method(current_visibility.clone(), false, true)?;
+                    let method =
+                        self.parse_class_method(current_visibility.clone(), false, true)?;
                     methods.push(method);
                 }
                 // Function method
                 Some(Token::Function) => {
                     self.advance();
-                    let mut method = self.parse_class_method(current_visibility.clone(), false, false)?;
+                    let mut method =
+                        self.parse_class_method(current_visibility.clone(), false, false)?;
                     // Parse return type
                     self.consume_or_skip(Token::Colon, &[Token::Semicolon, Token::End]);
-                    let return_type = self.parse_type().unwrap_or(Type::Simple(SimpleType::Integer));
+                    let return_type = self
+                        .parse_type()
+                        .unwrap_or(Type::Simple(SimpleType::Integer));
                     method.return_type = Some(return_type);
-                    self.consume_or_skip(Token::Semicolon, &[Token::End, Token::Private, Token::Public, Token::Protected, Token::Published, Token::Function, Token::Procedure, Token::Constructor, Token::Destructor, Token::Property]);
+                    self.consume_or_skip(
+                        Token::Semicolon,
+                        &[
+                            Token::End,
+                            Token::Private,
+                            Token::Public,
+                            Token::Protected,
+                            Token::Published,
+                            Token::Function,
+                            Token::Procedure,
+                            Token::Constructor,
+                            Token::Destructor,
+                            Token::Property,
+                        ],
+                    );
                     // Parse method modifiers after semicolon
                     self.parse_method_modifiers(&mut method);
                     methods.push(method);
@@ -658,8 +780,23 @@ impl<'a> Parser<'a> {
                 // Procedure method
                 Some(Token::Procedure) => {
                     self.advance();
-                    let mut method = self.parse_class_method(current_visibility.clone(), false, false)?;
-                    self.consume_or_skip(Token::Semicolon, &[Token::End, Token::Private, Token::Public, Token::Protected, Token::Published, Token::Function, Token::Procedure, Token::Constructor, Token::Destructor, Token::Property]);
+                    let mut method =
+                        self.parse_class_method(current_visibility.clone(), false, false)?;
+                    self.consume_or_skip(
+                        Token::Semicolon,
+                        &[
+                            Token::End,
+                            Token::Private,
+                            Token::Public,
+                            Token::Protected,
+                            Token::Published,
+                            Token::Function,
+                            Token::Procedure,
+                            Token::Constructor,
+                            Token::Destructor,
+                            Token::Property,
+                        ],
+                    );
                     self.parse_method_modifiers(&mut method);
                     methods.push(method);
                 }
@@ -685,7 +822,9 @@ impl<'a> Parser<'a> {
                         }
                     }
                     self.consume_or_skip(Token::Colon, &[Token::Semicolon, Token::End]);
-                    let field_type = self.parse_type().unwrap_or(Type::Simple(SimpleType::Integer));
+                    let field_type = self
+                        .parse_type()
+                        .unwrap_or(Type::Simple(SimpleType::Integer));
                     for fname in names {
                         fields.push(FieldDecl {
                             name: fname,
@@ -693,7 +832,16 @@ impl<'a> Parser<'a> {
                             visibility: current_visibility.clone(),
                         });
                     }
-                    self.consume_or_skip(Token::Semicolon, &[Token::End, Token::Private, Token::Public, Token::Protected, Token::Published]);
+                    self.consume_or_skip(
+                        Token::Semicolon,
+                        &[
+                            Token::End,
+                            Token::Private,
+                            Token::Public,
+                            Token::Protected,
+                            Token::Published,
+                        ],
+                    );
                 }
                 _ => break,
             }
@@ -715,21 +863,44 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a method declaration inside a class (name + params, no return type yet for function)
-    fn parse_class_method(&mut self, visibility: FieldVisibility, is_constructor: bool, is_destructor: bool) -> ParseResult<MethodDecl> {
+    fn parse_class_method(
+        &mut self,
+        visibility: FieldVisibility,
+        is_constructor: bool,
+        is_destructor: bool,
+    ) -> ParseResult<MethodDecl> {
         let name = match self.peek() {
             Some(Token::Identifier(n)) => {
                 let n = n.clone();
                 self.advance();
                 n
             }
-            _ => return Err(ParseError::UnexpectedToken("expected method name".to_string())),
+            _ => {
+                return Err(ParseError::UnexpectedToken(
+                    "expected method name".to_string(),
+                ))
+            }
         };
 
         let params = self.parse_parameters()?;
 
         // For constructor/destructor, consume semicolon and modifiers here
         if is_constructor || is_destructor {
-            self.consume_or_skip(Token::Semicolon, &[Token::End, Token::Private, Token::Public, Token::Protected, Token::Published, Token::Function, Token::Procedure, Token::Constructor, Token::Destructor, Token::Property]);
+            self.consume_or_skip(
+                Token::Semicolon,
+                &[
+                    Token::End,
+                    Token::Private,
+                    Token::Public,
+                    Token::Protected,
+                    Token::Published,
+                    Token::Function,
+                    Token::Procedure,
+                    Token::Constructor,
+                    Token::Destructor,
+                    Token::Property,
+                ],
+            );
             let mut method = MethodDecl {
                 name,
                 parameters: params,
@@ -773,28 +944,38 @@ impl<'a> Parser<'a> {
                 Some(Token::Virtual) => {
                     self.advance();
                     method.is_virtual = true;
-                    if self.check(Token::Semicolon) { self.advance(); }
+                    if self.check(Token::Semicolon) {
+                        self.advance();
+                    }
                 }
                 Some(Token::Override) => {
                     self.advance();
                     method.is_override = true;
-                    if self.check(Token::Semicolon) { self.advance(); }
+                    if self.check(Token::Semicolon) {
+                        self.advance();
+                    }
                 }
                 Some(Token::Abstract) => {
                     self.advance();
                     method.is_abstract = true;
                     method.is_virtual = true;
-                    if self.check(Token::Semicolon) { self.advance(); }
+                    if self.check(Token::Semicolon) {
+                        self.advance();
+                    }
                 }
                 Some(Token::Identifier(s)) if s == "overload" => {
                     self.advance();
                     method.is_overload = true;
-                    if self.check(Token::Semicolon) { self.advance(); }
+                    if self.check(Token::Semicolon) {
+                        self.advance();
+                    }
                 }
                 Some(Token::Identifier(s)) if s == "static" => {
                     self.advance();
                     method.is_static = true;
-                    if self.check(Token::Semicolon) { self.advance(); }
+                    if self.check(Token::Semicolon) {
+                        self.advance();
+                    }
                 }
                 _ => break,
             }
@@ -811,11 +992,17 @@ impl<'a> Parser<'a> {
                 self.advance();
                 n
             }
-            _ => return Err(ParseError::UnexpectedToken("expected property name".to_string())),
+            _ => {
+                return Err(ParseError::UnexpectedToken(
+                    "expected property name".to_string(),
+                ))
+            }
         };
 
         self.consume_or_skip(Token::Colon, &[Token::Semicolon, Token::End]);
-        let property_type = self.parse_type().unwrap_or(Type::Simple(SimpleType::Integer));
+        let property_type = self
+            .parse_type()
+            .unwrap_or(Type::Simple(SimpleType::Integer));
 
         let mut read_specifier = None;
         let mut write_specifier = None;
@@ -848,7 +1035,17 @@ impl<'a> Parser<'a> {
             }
         }
 
-        self.consume_or_skip(Token::Semicolon, &[Token::End, Token::Private, Token::Public, Token::Protected, Token::Published, Token::Property]);
+        self.consume_or_skip(
+            Token::Semicolon,
+            &[
+                Token::End,
+                Token::Private,
+                Token::Public,
+                Token::Protected,
+                Token::Published,
+                Token::Property,
+            ],
+        );
 
         Ok(PropertyDecl {
             name,
@@ -871,16 +1068,26 @@ impl<'a> Parser<'a> {
                 self.advance();
                 n
             }
-            _ => return Err(ParseError::UnexpectedToken("expected procedure name".to_string())),
+            _ => {
+                return Err(ParseError::UnexpectedToken(
+                    "expected procedure name".to_string(),
+                ))
+            }
         };
 
         let parameters = self.parse_parameters()?;
-        self.consume_or_skip(Token::Semicolon, &[Token::Var, Token::Begin, Token::Forward]);
+        self.consume_or_skip(
+            Token::Semicolon,
+            &[Token::Var, Token::Begin, Token::Forward],
+        );
 
         // Check for forward declaration
         if self.check(Token::Forward) {
             self.advance();
-            self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Begin]);
+            self.consume_or_skip(
+                Token::Semicolon,
+                &[Token::Procedure, Token::Function, Token::Begin],
+            );
             return Ok(ProcedureDecl {
                 name,
                 parameters,
@@ -898,7 +1105,10 @@ impl<'a> Parser<'a> {
         }
 
         let block = self.parse_block()?;
-        self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Begin]);
+        self.consume_or_skip(
+            Token::Semicolon,
+            &[Token::Procedure, Token::Function, Token::Begin],
+        );
 
         Ok(ProcedureDecl {
             name,
@@ -924,20 +1134,32 @@ impl<'a> Parser<'a> {
                 self.advance();
                 n
             }
-            _ => return Err(ParseError::UnexpectedToken("expected function name".to_string())),
+            _ => {
+                return Err(ParseError::UnexpectedToken(
+                    "expected function name".to_string(),
+                ))
+            }
         };
 
         let parameters = self.parse_parameters()?;
 
         // Parse return type: ': type'
         self.consume_or_skip(Token::Colon, &[Token::Semicolon, Token::Begin]);
-        let return_type = self.parse_type().unwrap_or(Type::Simple(SimpleType::Integer));
-        self.consume_or_skip(Token::Semicolon, &[Token::Var, Token::Begin, Token::Forward]);
+        let return_type = self
+            .parse_type()
+            .unwrap_or(Type::Simple(SimpleType::Integer));
+        self.consume_or_skip(
+            Token::Semicolon,
+            &[Token::Var, Token::Begin, Token::Forward],
+        );
 
         // Check for forward declaration
         if self.check(Token::Forward) {
             self.advance();
-            self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Begin]);
+            self.consume_or_skip(
+                Token::Semicolon,
+                &[Token::Procedure, Token::Function, Token::Begin],
+            );
             return Ok(FunctionDecl {
                 name,
                 parameters,
@@ -956,7 +1178,10 @@ impl<'a> Parser<'a> {
         }
 
         let block = self.parse_block()?;
-        self.consume_or_skip(Token::Semicolon, &[Token::Procedure, Token::Function, Token::Begin]);
+        self.consume_or_skip(
+            Token::Semicolon,
+            &[Token::Procedure, Token::Function, Token::Begin],
+        );
 
         Ok(FunctionDecl {
             name,
@@ -1021,7 +1246,9 @@ impl<'a> Parser<'a> {
 
             // Parse ': type'
             self.consume_or_skip(Token::Colon, &[Token::Semicolon, Token::RightParen]);
-            let param_type = self.parse_type().unwrap_or(Type::Simple(SimpleType::Integer));
+            let param_type = self
+                .parse_type()
+                .unwrap_or(Type::Simple(SimpleType::Integer));
 
             for name in names {
                 params.push(Parameter {
@@ -1041,7 +1268,10 @@ impl<'a> Parser<'a> {
             }
         }
 
-        self.consume_or_skip(Token::RightParen, &[Token::Semicolon, Token::Colon, Token::Begin]);
+        self.consume_or_skip(
+            Token::RightParen,
+            &[Token::Semicolon, Token::Colon, Token::Begin],
+        );
         Ok(params)
     }
 
@@ -1147,7 +1377,10 @@ impl<'a> Parser<'a> {
                         _parent = Some(n.clone());
                         self.advance();
                     }
-                    self.consume_or_skip(Token::RightParen, &[Token::End, Token::Private, Token::Public]);
+                    self.consume_or_skip(
+                        Token::RightParen,
+                        &[Token::End, Token::Private, Token::Public],
+                    );
                 }
                 // Skip the class body for type parsing — consume until 'end'
                 let mut depth = 1;
@@ -1165,7 +1398,9 @@ impl<'a> Parser<'a> {
                             self.advance();
                             depth += 1;
                         }
-                        _ => { self.advance(); }
+                        _ => {
+                            self.advance();
+                        }
                     }
                 }
                 Type::Alias {

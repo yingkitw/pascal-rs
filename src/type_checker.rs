@@ -202,18 +202,9 @@ mod tests {
         let table = LocalSymbolTable::new();
         let checker = TypeChecker::new(&table);
 
-        assert_eq!(
-            checker.literal_type(&Literal::Integer(42)),
-            Type::Integer
-        );
-        assert_eq!(
-            checker.literal_type(&Literal::Boolean(true)),
-            Type::Boolean
-        );
-        assert_eq!(
-            checker.literal_type(&Literal::Real(3.14)),
-            Type::Real
-        );
+        assert_eq!(checker.literal_type(&Literal::Integer(42)), Type::Integer);
+        assert_eq!(checker.literal_type(&Literal::Boolean(true)), Type::Boolean);
+        assert_eq!(checker.literal_type(&Literal::Real(3.14)), Type::Real);
     }
 
     #[test]
@@ -222,20 +213,12 @@ mod tests {
         let checker = TypeChecker::new(&table);
 
         // Integer + Integer = Integer
-        let result = checker.check_binary_op(
-            "+",
-            &Type::Integer,
-            &Type::Integer,
-        );
+        let result = checker.check_binary_op("+", &Type::Integer, &Type::Integer);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), Type::Integer);
 
         // Integer < Integer = Boolean
-        let result = checker.check_binary_op(
-            "<",
-            &Type::Integer,
-            &Type::Integer,
-        );
+        let result = checker.check_binary_op("<", &Type::Integer, &Type::Integer);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), Type::Boolean);
     }

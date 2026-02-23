@@ -138,10 +138,7 @@ impl<'a> Parser<'a> {
                         // Array/string indexing: arr[i] or s[i]
                         self.advance();
                         let index = self.parse_expression()?;
-                        self.consume_or_skip(
-                            Token::RightBracket,
-                            &[Token::Semicolon, Token::End],
-                        );
+                        self.consume_or_skip(Token::RightBracket, &[Token::Semicolon, Token::End]);
                         if let Some(idx_expr) = index {
                             // Encode as FunctionCall "__index__(arr, i)"
                             result = Expr::FunctionCall {

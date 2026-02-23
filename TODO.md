@@ -86,20 +86,145 @@ Build system with `pascal.toml` manifest, dependency management, lock file, and 
 
 ---
 
+## Enhancement Ideas
+
+### Architecture & Codebase
+- [ ] Unify AST types (`ast.rs` vs `enhanced_ast.rs`) into single coherent module
+- [ ] Modularize large source files (split by responsibility)
+- [ ] Migrate or re-enable commented-out modules for full compatibility
+- [x] Improve `From` conversions between module error types for cleaner error chaining
+- [x] Optional minimal build profile (no LSP/MCP/GUI) for smaller binary — `full` feature
+- [ ] Plugin architecture for extending compiler functionality
+- [ ] Event-driven architecture for compilation phases
+- [ ] Microservice decomposition for distributed compilation
+- [ ] Configuration system with environment-specific profiles
+- [ ] Feature flags system for experimental features
+- [ ] Gradual migration to async/await where beneficial
+- [ ] Memory-efficient data structures and algorithms
+- [ ] Zero-copy parsing and AST construction where possible
+
+### Compiler & Language
+- [ ] Generics / generic type parameters with variance and constraints
+- [ ] Interface types with multiple inheritance and default methods
+- [ ] Compile-time constant evaluation and constexpr functions
+- [x] Optimization level flags (-O0, -O1, -O2, -O3) — Compile -O, Build -O override
+- [ ] Dead code elimination across units and link-time optimization
+- [ ] Better Unicode/UTF-8 string handling with normalization
+- [ ] Advanced pattern matching (case expressions with guards)
+- [ ] Attribute system for metadata and compiler directives
+- [ ] Conditional compilation with feature flags
+- [ ] Macro system for code generation
+- [ ] Reflection capabilities at runtime
+- [ ] Type inference for local variables
+- [ ] Union types and variant records
+- [ ] Anonymous functions and lambda expressions
+- [ ] Async/await syntax for concurrent programming
+
+### Tooling & UX
+- [x] `pascal fmt` — basic code formatter (trim, blank lines)
+- [x] `pascal check` — parse validation
+- [ ] `pascal doc` — documentation generator with Markdown/HTML output
+- [ ] Error messages with suggestions ("did you mean X?") using Levenshtein distance
+- [ ] Source maps for debugging generated code
+- [x] Verbose/quiet flags and progress indicators for builds
+- [ ] Interactive debugger with breakpoints and watch expressions
+- [ ] Code completion and IntelliSense integration
+- [ ] Syntax highlighting extensions for popular editors
+- [ ] Project templates for common application types
+- [ ] Hot reload for development mode
+- [ ] Performance profiler integration
+- [ ] Memory leak detection tools
+
+### Testing & Quality
+- [ ] Property-based testing (quickcheck/proptest) for lexer/parser
+- [ ] Fuzz testing for parser and interpreter with AFL/libFuzzer
+- [ ] Performance regression tests in CI with benchmarks
+- [ ] Broader integration test coverage for interpreter edge cases
+- [ ] Mutation testing framework for test quality assessment
+- [ ] Automated code coverage reporting with codecov
+- [ ] Contract testing for module boundaries
+- [ ] Visual regression testing for GUI components
+- [ ] Load testing for compilation of large codebases
+- [ ] Cross-platform compatibility test matrix
+- [ ] Security vulnerability scanning in dependencies
+
+### Dependencies
+- [x] Audit and document transitive deps — see docs/DEPENDENCIES.md
+- [ ] Evaluate lighter alternatives for heavy transitive deps where feasible
+- [ ] Implement dependency vulnerability scanning and alerts
+- [ ] Create dependency update automation with security checks
+- [ ] Develop custom lightweight alternatives for critical paths
+- [ ] Implement feature-gated dependencies to reduce binary size
+- [ ] Add dependency version compatibility matrix
+- [ ] Create reproducible builds with exact dependency versions
+- [ ] Implement dependency caching for faster builds
+- [ ] Add support for private package registries
+- [ ] Develop dependency graph analysis tools
+- [ ] Implement selective dependency loading based on features
+
+---
+
 ## Future Work
 
-- [ ] CI/CD pipeline
-- [ ] Benchmark suite vs. FPC
-- [ ] LSP server for IDE integration
-- [ ] REPL mode
-- [ ] Package registry (fetch deps from URL)
-- [ ] Git dependency fetching
-- [ ] Array element assignment (`arr[i] := val`)
-- [ ] Multi-dimensional arrays
-- [ ] Enum types in interpreter
-- [ ] Set operations in interpreter
-- [ ] Pointer/reference support
-- [ ] Inline class method bodies in parser
+### Development Experience
+- [ ] CI/CD pipeline with GitHub Actions/GitLab CI
+- [ ] Benchmark suite vs. FPC with detailed performance metrics
+- [ ] LSP server for IDE integration with full language support
+- [ ] REPL mode with autocompletion and history
+- [ ] Package registry (fetch deps from URL) with semantic versioning
+- [ ] Git dependency fetching with submodules and branches
+- [ ] VS Code extension with syntax highlighting and debugging
+- [ ] JetBrains plugin family (IntelliJ, CLion, Rider)
+- [ ] Vim/Neovim plugin with LSP client integration
+- [ ] Emacs package with tree-sitter grammar
+
+### Language Features
+- [ ] Array element assignment (`arr[i] := val`) with bounds checking
+- [ ] Multi-dimensional arrays with dynamic allocation
+- [ ] Enum types in interpreter with scoped constants
+- [ ] Set operations in interpreter with efficient bit representations
+- [ ] Pointer/reference support with garbage collection options
+- [ ] Inline class method bodies in parser with lambda capture
+- [ ] Variant records and discriminated unions
+- [ ] Operator overloading for custom types
+- [ ] Custom attributes and annotations system
+- [ ] Partial units and interface sections
+
+### Platform & Integration
+- [ ] WebAssembly backend for browser execution
+- [ ] LLVM backend for native code generation
+- [ ] Docker containerization for reproducible builds
+- [ ] Cloud compilation service with remote caching
+- [ ] Plugin system for extending compiler functionality
+- [ ] Foreign function interface (FFI) for C/C++ libraries
+- [ ] Database connectivity libraries (SQL, NoSQL)
+- [ ] HTTP client and server libraries
+- [ ] GUI framework bindings (Qt, GTK, wxWidgets)
+- [ ] Mobile app development support (iOS, Android)
+
+### Performance & Optimization
+- [ ] Profile-guided optimization (PGO) support
+- [ ] Just-in-time (JIT) compilation for hot paths
+- [ ] Incremental compilation for faster rebuild times
+- [ ] Parallel parsing and compilation of independent units
+- [ ] Smart linking and dead code elimination
+- [ ] Memory pool allocation for performance-critical code
+- [ ] Vectorization and SIMD optimizations
+- [ ] Cache-aware data layout optimizations
+- [ ] Branch prediction hints and optimization
+- [ ] Loop transformations and optimizations
+
+### Documentation & Community
+- [ ] Comprehensive language reference manual
+- [ ] Interactive tutorials and learning platform
+- [ ] Video tutorial series and conference talks
+- [ ] Community forum and Discord server
+- [ ] Contribution guidelines and code of conduct
+- [ ] Security vulnerability disclosure program
+- [ ] Regular release schedule with changelog
+- [ ] Migration guides from other Pascal compilers
+- [ ] Best practices and design patterns guide
+- [ ] Success stories and case studies
 
 ---
 

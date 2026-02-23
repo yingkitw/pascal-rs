@@ -69,11 +69,15 @@ impl std::fmt::Display for Value {
             Value::Nil => write!(f, "nil"),
             Value::Object { class_name, .. } => write!(f, "<{}>", class_name),
             Value::Array { elements, .. } => {
-                let items: Vec<std::string::String> = elements.iter().map(|v| format!("{}", v)).collect();
+                let items: Vec<std::string::String> =
+                    elements.iter().map(|v| format!("{}", v)).collect();
                 write!(f, "({})", items.join(", "))
             }
             Value::Record { fields } => {
-                let items: Vec<std::string::String> = fields.iter().map(|(k, v)| format!("{}: {}", k, v)).collect();
+                let items: Vec<std::string::String> = fields
+                    .iter()
+                    .map(|(k, v)| format!("{}: {}", k, v))
+                    .collect();
                 write!(f, "record({})", items.join("; "))
             }
         }
@@ -153,9 +157,15 @@ impl Interpreter {
     pub fn new(verbose: bool) -> Self {
         let mut global = Scope::new();
         // Pre-define some common constants
-        global.variables.insert("maxint".to_string(), Value::Integer(i64::MAX));
-        global.variables.insert("true".to_string(), Value::Boolean(true));
-        global.variables.insert("false".to_string(), Value::Boolean(false));
+        global
+            .variables
+            .insert("maxint".to_string(), Value::Integer(i64::MAX));
+        global
+            .variables
+            .insert("true".to_string(), Value::Boolean(true));
+        global
+            .variables
+            .insert("false".to_string(), Value::Boolean(false));
 
         Self {
             scopes: vec![global],
@@ -167,7 +177,9 @@ impl Interpreter {
 
     /// Get the current (innermost) scope for testing purposes
     pub fn current_scope(&self) -> &Scope {
-        self.scopes.last().expect("Scope stack should never be empty")
+        self.scopes
+            .last()
+            .expect("Scope stack should never be empty")
     }
 
     /// Get a variable value for testing purposes
@@ -213,8 +225,8 @@ impl Interpreter {
             let unit_lower = unit_name.to_lowercase();
             // Skip built-in units (SysUtils, Classes, etc.)
             match unit_lower.as_str() {
-                "system" | "sysutils" | "classes" | "types" | "math"
-                | "strutils" | "dateutils" | "variants" | "crt" => {
+                "system" | "sysutils" | "classes" | "types" | "math" | "strutils" | "dateutils"
+                | "variants" | "crt" => {
                     if self.verbose {
                         eprintln!("[interpreter] Skipping built-in unit '{}'", unit_name);
                     }
@@ -227,12 +239,18 @@ impl Interpreter {
             let file_name = format!("{}.pas", unit_lower);
             if let Ok(source) = std::fs::read_to_string(&file_name) {
                 if self.verbose {
-                    eprintln!("[interpreter] Loading unit '{}' from {}", unit_name, file_name);
+                    eprintln!(
+                        "[interpreter] Loading unit '{}' from {}",
+                        unit_name, file_name
+                    );
                 }
                 self.load_unit_source(&source)?;
             } else {
                 if self.verbose {
-                    eprintln!("[interpreter] Unit '{}' not found ({}), skipping", unit_name, file_name);
+                    eprintln!(
+                        "[interpreter] Unit '{}' not found ({}), skipping",
+                        unit_name, file_name
+                    );
                 }
             }
         }
@@ -282,7 +300,8 @@ impl Interpreter {
                 );
             }
             for class_decl in &unit.interface.classes {
-                self.classes.insert(class_decl.name.to_lowercase(), class_decl.clone());
+                self.classes
+                    .insert(class_decl.name.to_lowercase(), class_decl.clone());
             }
             for const_decl in &unit.interface.constants {
                 let val = self.literal_to_value(&const_decl.value);
@@ -402,32 +421,28 @@ impl Interpreter {
                 }
             }
 
-            Stmt::While { condition, body } => {
-                loop {
-                    let cond = self.eval_expr(condition)?.as_boolean()?;
-                    if !cond {
-                        break;
-                    }
-                    for s in body {
-                        self.execute_stmt(s)?;
-                    }
+            Stmt::While { condition, body } => loop {
+                let cond = self.eval_expr(condition)?.as_boolean()?;
+                if !cond {
+                    break;
                 }
-            }
+                for s in body {
+                    self.execute_stmt(s)?;
+                }
+            },
 
             Stmt::Repeat {
                 body,
                 until_condition,
-            } => {
-                loop {
-                    for s in body {
-                        self.execute_stmt(s)?;
-                    }
-                    let cond = self.eval_expr(until_condition)?.as_boolean()?;
-                    if cond {
-                        break;
-                    }
+            } => loop {
+                for s in body {
+                    self.execute_stmt(s)?;
                 }
-            }
+                let cond = self.eval_expr(until_condition)?.as_boolean()?;
+                if cond {
+                    break;
+                }
+            },
 
             Stmt::For {
                 var_name,
@@ -666,7 +681,9 @@ impl Interpreter {
     /// Evaluate a dotted function call: ClassName.Create() or obj.Method()
     fn eval_dotted_call(&mut self, name: &str, arguments: &[Expr]) -> Result<Value> {
         let name_lower = name.to_lowercase();
-        let dot_pos = name_lower.find('.').ok_or_else(|| anyhow!("Expected dotted name"))?;
+        let dot_pos = name_lower
+            .find('.')
+            .ok_or_else(|| anyhow!("Expected dotted name"))?;
         let receiver = &name_lower[..dot_pos];
         let method = &name_lower[dot_pos + 1..];
 
@@ -729,7 +746,11 @@ impl Interpreter {
     }
 
     /// Create a new object instance from a class declaration
-    fn create_object(&mut self, class_decl: &crate::ast::ClassDecl, arguments: &[Expr]) -> Result<Value> {
+    fn create_object(
+        &mut self,
+        class_decl: &crate::ast::ClassDecl,
+        arguments: &[Expr],
+    ) -> Result<Value> {
         let mut fields = HashMap::new();
 
         // Collect fields from parent class (single inheritance)
@@ -994,9 +1015,18 @@ impl Interpreter {
                     let new_len = self.eval_expr(&arguments[1])?.as_integer()? as usize;
                     let current = self.get_variable(var_name).ok();
                     match current {
-                        Some(Value::Array { mut elements, lower_bound }) => {
+                        Some(Value::Array {
+                            mut elements,
+                            lower_bound,
+                        }) => {
                             elements.resize(new_len, Value::Integer(0));
-                            self.set_variable(var_name, Value::Array { elements, lower_bound });
+                            self.set_variable(
+                                var_name,
+                                Value::Array {
+                                    elements,
+                                    lower_bound,
+                                },
+                            );
                         }
                         Some(Value::String(mut s)) => {
                             s.truncate(new_len);
@@ -1008,7 +1038,13 @@ impl Interpreter {
                         _ => {
                             // Create new array
                             let elements = vec![Value::Integer(0); new_len];
-                            self.set_variable(var_name, Value::Array { elements, lower_bound: 0 });
+                            self.set_variable(
+                                var_name,
+                                Value::Array {
+                                    elements,
+                                    lower_bound: 0,
+                                },
+                            );
                         }
                     }
                 }
@@ -1129,9 +1165,7 @@ impl Interpreter {
             } => {
                 let val = self.eval_expr(expression)?;
                 let result = match &val {
-                    Value::Object { class_name, .. } => {
-                        self.is_instance_of(class_name, type_name)
-                    }
+                    Value::Object { class_name, .. } => self.is_instance_of(class_name, type_name),
                     _ => false,
                 };
                 Ok(Value::Boolean(result))
@@ -1163,7 +1197,8 @@ impl Interpreter {
                 let self_val = self.get_variable("self")?;
                 if let Value::Object { ref class_name, .. } = self_val {
                     let class_name = class_name.clone();
-                    if let Some(class_decl) = self.classes.get(&class_name.to_lowercase()).cloned() {
+                    if let Some(class_decl) = self.classes.get(&class_name.to_lowercase()).cloned()
+                    {
                         if let Some(ref parent_name) = class_decl.parent {
                             if let Some(method_name) = member {
                                 // inherited MethodName — call parent's method
@@ -1252,9 +1287,10 @@ impl Interpreter {
             "high" => {
                 let val = self.eval_expr(&arguments[0])?;
                 match val {
-                    Value::Array { elements, lower_bound } => {
-                        Ok(Value::Integer(lower_bound + elements.len() as i64 - 1))
-                    }
+                    Value::Array {
+                        elements,
+                        lower_bound,
+                    } => Ok(Value::Integer(lower_bound + elements.len() as i64 - 1)),
                     Value::String(s) => Ok(Value::Integer(s.len() as i64)),
                     _ => Err(anyhow!("high() requires array or string")),
                 }
@@ -1351,12 +1387,19 @@ impl Interpreter {
                 let collection = self.eval_expr(&arguments[0])?;
                 let index = self.eval_expr(&arguments[1])?.as_integer()?;
                 match collection {
-                    Value::Array { ref elements, lower_bound } => {
+                    Value::Array {
+                        ref elements,
+                        lower_bound,
+                    } => {
                         let idx = (index - lower_bound) as usize;
                         if idx < elements.len() {
                             Ok(elements[idx].clone())
                         } else {
-                            Err(anyhow!("Array index out of bounds: {} (length {})", index, elements.len()))
+                            Err(anyhow!(
+                                "Array index out of bounds: {} (length {})",
+                                index,
+                                elements.len()
+                            ))
                         }
                     }
                     Value::String(ref s) => {
@@ -1365,7 +1408,11 @@ impl Interpreter {
                         if idx < s.len() {
                             Ok(Value::Char(s.as_bytes()[idx] as char))
                         } else {
-                            Err(anyhow!("String index out of bounds: {} (length {})", index, s.len()))
+                            Err(anyhow!(
+                                "String index out of bounds: {} (length {})",
+                                index,
+                                s.len()
+                            ))
                         }
                     }
                     _ => Err(anyhow!("Cannot index into {:?}", collection)),
@@ -1516,19 +1563,31 @@ impl Interpreter {
             let field_name = &name_lower[dot_pos + 1..];
             let obj = self.get_variable(obj_name)?;
             match &obj {
-                Value::Object { fields, class_name: _, .. } => {
+                Value::Object {
+                    fields,
+                    class_name: _,
+                    ..
+                } => {
                     if let Some(val) = fields.get(field_name) {
                         return Ok(val.clone());
                     }
                     // Try property read (can't call &mut self here, so skip for const)
                     // Property reads are handled in eval_expr for dotted variables
-                    return Err(anyhow!("Object '{}' has no field '{}'", obj_name, field_name));
+                    return Err(anyhow!(
+                        "Object '{}' has no field '{}'",
+                        obj_name,
+                        field_name
+                    ));
                 }
                 Value::Record { fields } => {
                     if let Some(val) = fields.get(field_name) {
                         return Ok(val.clone());
                     }
-                    return Err(anyhow!("Record '{}' has no field '{}'", obj_name, field_name));
+                    return Err(anyhow!(
+                        "Record '{}' has no field '{}'",
+                        obj_name,
+                        field_name
+                    ));
                 }
                 _ => return Err(anyhow!("'{}' is not an object or record", obj_name)),
             }
@@ -1616,11 +1675,7 @@ mod tests {
         }
     }
 
-    fn make_program_with_vars(
-        name: &str,
-        vars: Vec<VariableDecl>,
-        stmts: Vec<Stmt>,
-    ) -> Program {
+    fn make_program_with_vars(name: &str, vars: Vec<VariableDecl>, stmts: Vec<Stmt>) -> Program {
         Program {
             name: name.to_string(),
             uses: vec![],
@@ -1844,19 +1899,27 @@ mod tests {
     fn test_comparison_ops() {
         let interp = Interpreter::new(false);
         assert_eq!(
-            interp.eval_binary_op("=", &Value::Integer(5), &Value::Integer(5)).unwrap(),
+            interp
+                .eval_binary_op("=", &Value::Integer(5), &Value::Integer(5))
+                .unwrap(),
             Value::Boolean(true)
         );
         assert_eq!(
-            interp.eval_binary_op("<>", &Value::Integer(5), &Value::Integer(3)).unwrap(),
+            interp
+                .eval_binary_op("<>", &Value::Integer(5), &Value::Integer(3))
+                .unwrap(),
             Value::Boolean(true)
         );
         assert_eq!(
-            interp.eval_binary_op("<", &Value::Integer(3), &Value::Integer(5)).unwrap(),
+            interp
+                .eval_binary_op("<", &Value::Integer(3), &Value::Integer(5))
+                .unwrap(),
             Value::Boolean(true)
         );
         assert_eq!(
-            interp.eval_binary_op(">", &Value::Integer(5), &Value::Integer(3)).unwrap(),
+            interp
+                .eval_binary_op(">", &Value::Integer(5), &Value::Integer(3))
+                .unwrap(),
             Value::Boolean(true)
         );
     }
@@ -1879,7 +1942,9 @@ mod tests {
         let interp = Interpreter::new(false);
         // Integer division
         assert_eq!(
-            interp.eval_binary_op("div", &Value::Integer(10), &Value::Integer(3)).unwrap(),
+            interp
+                .eval_binary_op("div", &Value::Integer(10), &Value::Integer(3))
+                .unwrap(),
             Value::Integer(3)
         );
         // Real division
@@ -2137,10 +2202,13 @@ mod tests {
         // type TPoint = class x, y: integer; end;
         // var p: TPoint;
         // p := TPoint.Create;
-        let class = make_simple_class("TPoint", vec![
-            ("x", FieldVisibility::Public),
-            ("y", FieldVisibility::Public),
-        ]);
+        let class = make_simple_class(
+            "TPoint",
+            vec![
+                ("x", FieldVisibility::Public),
+                ("y", FieldVisibility::Public),
+            ],
+        );
 
         let prog = make_program_with_classes(
             "Test",
@@ -2171,10 +2239,13 @@ mod tests {
     #[test]
     fn test_class_field_access() {
         // p := TPoint.Create; p.x := 10; p.y := 20;
-        let class = make_simple_class("TPoint", vec![
-            ("x", FieldVisibility::Public),
-            ("y", FieldVisibility::Public),
-        ]);
+        let class = make_simple_class(
+            "TPoint",
+            vec![
+                ("x", FieldVisibility::Public),
+                ("y", FieldVisibility::Public),
+            ],
+        );
 
         let prog = make_program_with_classes(
             "Test",
@@ -2331,14 +2402,36 @@ mod tests {
             parent: None,
             interfaces: vec![],
             fields: vec![
-                FieldDecl { name: "x".to_string(), field_type: AstType::Integer, visibility: FieldVisibility::Public },
-                FieldDecl { name: "y".to_string(), field_type: AstType::Integer, visibility: FieldVisibility::Public },
+                FieldDecl {
+                    name: "x".to_string(),
+                    field_type: AstType::Integer,
+                    visibility: FieldVisibility::Public,
+                },
+                FieldDecl {
+                    name: "y".to_string(),
+                    field_type: AstType::Integer,
+                    visibility: FieldVisibility::Public,
+                },
             ],
             methods: vec![MethodDecl {
                 name: "Create".to_string(),
                 parameters: vec![
-                    Parameter { name: "ax".to_string(), param_type: AstType::Integer, is_var: false, is_const: false, is_out: false, default_value: None },
-                    Parameter { name: "ay".to_string(), param_type: AstType::Integer, is_var: false, is_const: false, is_out: false, default_value: None },
+                    Parameter {
+                        name: "ax".to_string(),
+                        param_type: AstType::Integer,
+                        is_var: false,
+                        is_const: false,
+                        is_out: false,
+                        default_value: None,
+                    },
+                    Parameter {
+                        name: "ay".to_string(),
+                        param_type: AstType::Integer,
+                        is_var: false,
+                        is_const: false,
+                        is_out: false,
+                        default_value: None,
+                    },
                 ],
                 return_type: None,
                 block: Some(Block::with_statements(vec![
@@ -2677,7 +2770,7 @@ mod tests {
 
     #[test]
     fn test_property_read_via_field() {
-        use crate::ast::{PropertyDecl, MethodSpecifier};
+        use crate::ast::{MethodSpecifier, PropertyDecl};
         let class = ClassDecl {
             name: "TObj".to_string(),
             parent: None,
@@ -2891,10 +2984,13 @@ mod tests {
     #[test]
     fn test_with_statement() {
         // Create object, use with to access fields directly
-        let class = make_simple_class("TPoint", vec![
-            ("x", FieldVisibility::Public),
-            ("y", FieldVisibility::Public),
-        ]);
+        let class = make_simple_class(
+            "TPoint",
+            vec![
+                ("x", FieldVisibility::Public),
+                ("y", FieldVisibility::Public),
+            ],
+        );
 
         let prog = make_program_with_classes(
             "Test",

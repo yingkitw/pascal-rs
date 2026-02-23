@@ -195,9 +195,9 @@ impl ProgressTracker {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ModuleError;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::thread;
-    use crate::ModuleError;
     use std::time::Duration;
 
     // Helper function to create a test module

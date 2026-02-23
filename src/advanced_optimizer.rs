@@ -151,9 +151,7 @@ impl LoopOptimizer {
                 stmt.clone()
             }
 
-            Stmt::While { condition, body } => {
-                self.hoist_invariants(condition, body)
-            }
+            Stmt::While { condition, body } => self.hoist_invariants(condition, body),
 
             _ => stmt.clone(),
         }
@@ -189,10 +187,12 @@ impl LoopOptimizer {
     /// Substitute variable in expression
     fn substitute_expr(&self, expr: &Expr, var_name: &str, value: i64) -> Expr {
         match expr {
-            Expr::Variable(name) if name == var_name => {
-                Expr::Literal(Literal::Integer(value))
-            }
-            Expr::BinaryOp { operator, left, right } => Expr::BinaryOp {
+            Expr::Variable(name) if name == var_name => Expr::Literal(Literal::Integer(value)),
+            Expr::BinaryOp {
+                operator,
+                left,
+                right,
+            } => Expr::BinaryOp {
                 operator: operator.clone(),
                 left: Box::new(self.substitute_expr(left, var_name, value)),
                 right: Box::new(self.substitute_expr(right, var_name, value)),
@@ -266,7 +266,11 @@ impl StrengthReducer {
     /// Optimize expression with strength reduction
     pub fn optimize(&self, expr: &Expr) -> Expr {
         match expr {
-            Expr::BinaryOp { operator, left, right } => {
+            Expr::BinaryOp {
+                operator,
+                left,
+                right,
+            } => {
                 let left_opt = self.optimize(left);
                 let right_opt = self.optimize(right);
 

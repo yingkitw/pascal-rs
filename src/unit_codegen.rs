@@ -80,12 +80,15 @@ impl UnitCodeGenerator {
         self.stack_size = self.stack_size.max(self.next_stack_offset);
 
         let offset = self.next_stack_offset;
-        self.variables.insert(name, VariableInfo {
-            offset,
-            typ,
-            is_exported: false,
-            is_param: false,
-        });
+        self.variables.insert(
+            name,
+            VariableInfo {
+                offset,
+                typ,
+                is_exported: false,
+                is_param: false,
+            },
+        );
 
         offset
     }
@@ -95,12 +98,15 @@ impl UnitCodeGenerator {
         let offset = self.param_offset;
         self.param_offset += 8; // Parameters are 8-byte aligned
 
-        self.variables.insert(name, VariableInfo {
-            offset,
-            typ,
-            is_exported: false,
-            is_param: true,
-        });
+        self.variables.insert(
+            name,
+            VariableInfo {
+                offset,
+                typ,
+                is_exported: false,
+                is_param: true,
+            },
+        );
 
         offset
     }
@@ -231,7 +237,11 @@ impl UnitCodeGenerator {
         // Allocate stack space for local variables
         let aligned_size = self.align_stack(self.stack_size);
         if aligned_size > 0 {
-            writeln!(&mut self.output, "    sub rsp, {}  # Allocate local variables", aligned_size)?;
+            writeln!(
+                &mut self.output,
+                "    sub rsp, {}  # Allocate local variables",
+                aligned_size
+            )?;
         }
 
         writeln!(&mut self.output, "    # Function body")?;
@@ -264,13 +274,22 @@ impl UnitCodeGenerator {
                 writeln!(&mut self.output, "    mov rax, 0  # Default integer return")?;
             }
             Type::Simple(SimpleType::Real) => {
-                writeln!(&mut self.output, "    pxor xmm0, xmm0  # Default real return")?;
+                writeln!(
+                    &mut self.output,
+                    "    pxor xmm0, xmm0  # Default real return"
+                )?;
             }
             Type::Simple(SimpleType::Boolean) => {
-                writeln!(&mut self.output, "    mov rax, 0  # Default boolean return (false)")?;
+                writeln!(
+                    &mut self.output,
+                    "    mov rax, 0  # Default boolean return (false)"
+                )?;
             }
             Type::Simple(SimpleType::Char) => {
-                writeln!(&mut self.output, "    mov rax, 0  # Default char return (#0)")?;
+                writeln!(
+                    &mut self.output,
+                    "    mov rax, 0  # Default char return (#0)"
+                )?;
             }
             _ => {
                 writeln!(&mut self.output, "    xor rax, rax  # Default return")?;
@@ -307,7 +326,11 @@ impl UnitCodeGenerator {
         // Allocate stack space for local variables
         let aligned_size = self.align_stack(self.stack_size);
         if aligned_size > 0 {
-            writeln!(&mut self.output, "    sub rsp, {}  # Allocate local variables", aligned_size)?;
+            writeln!(
+                &mut self.output,
+                "    sub rsp, {}  # Allocate local variables",
+                aligned_size
+            )?;
         }
 
         writeln!(&mut self.output, "    # Procedure body")?;
@@ -363,7 +386,10 @@ impl UnitCodeGenerator {
             Stmt::ProcedureCall { name, arguments } => {
                 self.generate_procedure_call(name, arguments)?;
             }
-            Stmt::Repeat { body, until_condition } => {
+            Stmt::Repeat {
+                body,
+                until_condition,
+            } => {
                 let label_start = self.new_label("repeat_start");
                 writeln!(&mut self.output, "{}:", label_start)?;
                 for stmt in body {
@@ -653,7 +679,10 @@ impl UnitCodeGenerator {
             }
             Literal::WideString(val) => {
                 writeln!(&mut self.output, "    # WideString literal: \"{}\"", val)?;
-                writeln!(&mut self.output, "    xor rax, rax  # TODO: WideString support")?;
+                writeln!(
+                    &mut self.output,
+                    "    xor rax, rax  # TODO: WideString support"
+                )?;
             }
             Literal::Set(_) => {
                 writeln!(&mut self.output, "    xor rax, rax  # TODO: Set literal")?;
@@ -676,11 +705,19 @@ impl UnitCodeGenerator {
         writeln!(&mut self.output, ".section .rodata")?;
         writeln!(&mut self.output, "{}:", label)?;
         writeln!(&mut self.output, "    .byte {}  # String length", len)?;
-        writeln!(&mut self.output, "    .byte {}  # String data", escaped_bytes)?;
+        writeln!(
+            &mut self.output,
+            "    .byte {}  # String data",
+            escaped_bytes
+        )?;
         writeln!(&mut self.output, ".section .text")?;
 
         // Load string address into rax
-        writeln!(&mut self.output, "    lea rax, [rip + {}]  # Load string address", label)?;
+        writeln!(
+            &mut self.output,
+            "    lea rax, [rip + {}]  # Load string address",
+            label
+        )?;
         Ok(())
     }
 
@@ -688,7 +725,12 @@ impl UnitCodeGenerator {
     fn generate_float_literal(&mut self, val: f64) -> Result<()> {
         // For float literals, we need to load them from memory
         // In a real implementation, this would use a constant pool
-        writeln!(&mut self.output, "    movabs rax, {}  # Float bits (0x{:016x})", val.to_bits(), val.to_bits())?;
+        writeln!(
+            &mut self.output,
+            "    movabs rax, {}  # Float bits (0x{:016x})",
+            val.to_bits(),
+            val.to_bits()
+        )?;
         writeln!(&mut self.output, "    movq xmm0, rax")?;
         Ok(())
     }
@@ -719,7 +761,8 @@ impl UnitCodeGenerator {
             Expr::Literal(Literal::Real(_)) => true,
             Expr::Variable(name) => {
                 if let Some(info) = self.variables.get(name) {
-                    matches!(info.typ, Type::Simple(SimpleType::Real)) || matches!(info.typ, Type::Real)
+                    matches!(info.typ, Type::Simple(SimpleType::Real))
+                        || matches!(info.typ, Type::Real)
                 } else {
                     false
                 }
@@ -806,7 +849,10 @@ impl UnitCodeGenerator {
     fn generate_float_binary_op(&mut self, op: &str, left: &Expr, right: &Expr) -> Result<()> {
         // Evaluate left operand into xmm0
         self.generate_expression(left)?;
-        writeln!(&mut self.output, "    movq rax, xmm0  # Move float result from xmm0")?;
+        writeln!(
+            &mut self.output,
+            "    movq rax, xmm0  # Move float result from xmm0"
+        )?;
         writeln!(&mut self.output, "    push rax")?;
 
         // Evaluate right operand into xmm0
@@ -867,7 +913,11 @@ impl UnitCodeGenerator {
                 writeln!(&mut self.output, "    movzx rax, al")?;
             }
             _ => {
-                writeln!(&mut self.output, "    # Unsupported float binary op: {}", op)?;
+                writeln!(
+                    &mut self.output,
+                    "    # Unsupported float binary op: {}",
+                    op
+                )?;
                 writeln!(&mut self.output, "    pxor xmm0, xmm0")?;
             }
         }
@@ -881,7 +931,8 @@ impl UnitCodeGenerator {
             Expr::Literal(Literal::String(_)) => true,
             Expr::Variable(name) => {
                 if let Some(info) = self.variables.get(name) {
-                    matches!(info.typ, Type::Simple(SimpleType::String)) || matches!(info.typ, Type::String)
+                    matches!(info.typ, Type::Simple(SimpleType::String))
+                        || matches!(info.typ, Type::String)
                 } else {
                     false
                 }
@@ -930,7 +981,10 @@ impl UnitCodeGenerator {
             "-" => {
                 if is_float {
                     // Float negation using SSE
-                    writeln!(&mut self.output, "    mov rax, 0x8000000000000000  # Sign bit")?;
+                    writeln!(
+                        &mut self.output,
+                        "    mov rax, 0x8000000000000000  # Sign bit"
+                    )?;
                     writeln!(&mut self.output, "    movq xmm1, rax")?;
                     writeln!(&mut self.output, "    xorpd xmm0, xmm1  # Negate float")?;
                 } else {

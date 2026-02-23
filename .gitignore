@@ -34,3 +34,81 @@ Cargo.lock
 .DS_Store
 .AppleDouble
 .LSOverride
+
+# Rust
+/target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# Editor directories and files
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Debug/Release profiles
+profile/
+*.profraw
+
+# Rust analyzer
+.rust-analyzer/
+
+# Backup files
+*.bak
+*.tmp
+*.orig
+*.rej
+
+# Local configuration
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+/build/**/*.s
+/build/**/*.o
+/build/**/*.out
+
+# Runtime library builds
+/runtime/*.o
+/runtime/*.a
+/runtime/*.dylib
+/runtime/*.so
+/runtime/test_runtime
+
+# Test outputs
+*.ppu
+
+# Documentation build
+/doc/
+/book/
+
+# CARGO_HOME
+.cargo/
+
+# Rustfmt backup files
+**/*.rs.bk
+
+# Clippy temp files
+.clippy/
+
+# Local database files
+*.db
+*.sqlite
+*.sqlite3

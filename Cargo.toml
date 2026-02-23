@@ -1,6 +1,6 @@
 [package]
 name = "pascal"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 authors = ["Ying Kit WONG"]
 license = "Apache-2.0"
@@ -56,10 +56,11 @@ assert_cmd = "2.0"
 predicates = "3.1"
 tempfile = "3.10"
 assert_matches = "1.5"
-insta = "1.41"
 
 [features]
 default = []
+# Minimal build is default (no lsp, mcp, gui). Use --features full for all.
+full = ["lsp", "mcp", "gui"]
 mcp = []  # MCP server for AI integration (optional)
 lsp = ["tower-lsp", "tokio", "serde_json"]
 gui = ["cocoa", "objc"]

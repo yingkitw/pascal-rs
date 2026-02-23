@@ -222,7 +222,10 @@ impl<'a> Parser<'a> {
                 self.advance();
                 // Parse else branch statements
                 let mut stmts = Vec::new();
-                while !self.check(Token::End) && !self.check(Token::Semicolon) && self.peek().is_some() {
+                while !self.check(Token::End)
+                    && !self.check(Token::Semicolon)
+                    && self.peek().is_some()
+                {
                     if let Some(stmt) = self.parse_statement()? {
                         stmts.push(stmt);
                     }

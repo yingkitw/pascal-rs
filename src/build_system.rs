@@ -78,10 +78,18 @@ pub struct BuildConfig {
     pub verbose: bool,
 }
 
-fn default_version() -> String { "0.1.0".to_string() }
-fn default_license() -> String { "MIT".to_string() }
-fn default_src() -> String { "src".to_string() }
-fn default_output() -> String { "build".to_string() }
+fn default_version() -> String {
+    "0.1.0".to_string()
+}
+fn default_license() -> String {
+    "MIT".to_string()
+}
+fn default_src() -> String {
+    "src".to_string()
+}
+fn default_output() -> String {
+    "build".to_string()
+}
 
 impl Manifest {
     /// Load manifest from a pascal.toml file
@@ -95,8 +103,7 @@ impl Manifest {
 
     /// Save manifest to a pascal.toml file
     pub fn save(&self, path: &Path) -> Result<()> {
-        let content = toml::to_string_pretty(self)
-            .context("Failed to serialize manifest")?;
+        let content = toml::to_string_pretty(self).context("Failed to serialize manifest")?;
         std::fs::write(path, content)
             .with_context(|| format!("Failed to write {}", path.display()))?;
         Ok(())
@@ -146,8 +153,7 @@ impl LockFile {
     }
 
     pub fn save(&self, path: &Path) -> Result<()> {
-        let content = toml::to_string_pretty(self)
-            .context("Failed to serialize lock file")?;
+        let content = toml::to_string_pretty(self).context("Failed to serialize lock file")?;
         std::fs::write(path, content)
             .with_context(|| format!("Failed to write {}", path.display()))?;
         Ok(())
@@ -326,7 +332,10 @@ impl BuildSystem {
         )?;
 
         // README.md
-        let readme = format!("# {}\n\nA Pascal project.\n\n## Build\n\n```bash\npascal build\npascal run\n```\n", name);
+        let readme = format!(
+            "# {}\n\nA Pascal project.\n\n## Build\n\n```bash\npascal build\npascal run\n```\n",
+            name
+        );
         std::fs::write(project_dir.join("README.md"), readme)?;
 
         println!(
@@ -348,17 +357,19 @@ impl BuildSystem {
     }
 
     /// `pascal build` — compile all units in dependency order, then the main program
-    pub fn build(&self) -> Result<()> {
+    pub fn build(&self, quiet: bool) -> Result<()> {
         let src_dir = self.project_root.join(&self.manifest.package.src);
         let output_dir = self.project_root.join(&self.manifest.build.output);
         std::fs::create_dir_all(&output_dir)?;
 
-        println!(
-            "{} {} v{}",
-            "Building".green().bold(),
-            self.manifest.package.name,
-            self.manifest.package.version
-        );
+        if !quiet {
+            println!(
+                "{} {} v{}",
+                "Building".green().bold(),
+                self.manifest.package.name,
+                self.manifest.package.version
+            );
+        }
 
         // Resolve local path dependencies
         self.resolve_dependencies()?;
@@ -366,7 +377,13 @@ impl BuildSystem {
         // Discover and sort units
         let units = discover_units(&src_dir)?;
         if units.is_empty() {
-            println!("  {} No .pas files found in {}", "Warning:".yellow().bold(), src_dir.display());
+            if !quiet {
+                println!(
+                    "  {} No .pas files found in {}",
+                    "Warning:".yellow().bold(),
+                    src_dir.display()
+                );
+            }
             return Ok(());
         }
 
@@ -388,13 +405,15 @@ impl BuildSystem {
             let unit = &units[idx];
             let source = std::fs::read_to_string(&unit.path)?;
 
-            print!(
-                "  {} [{}/{}] {}...",
-                "Compiling".green(),
-                compiled + 1,
-                total,
-                unit.name
-            );
+            if !quiet {
+                print!(
+                    "  {} [{}/{}] {}...",
+                    "Compiling".green(),
+                    compiled + 1,
+                    total,
+                    unit.name
+                );
+            }
 
             let mut parser = crate::parser::Parser::new(&source);
             match parser.parse_program() {
@@ -403,18 +422,25 @@ impl BuildSystem {
                     let mut interp = crate::interpreter::Interpreter::new(false);
                     match interp.run_program(&program) {
                         Ok(()) => {
-                            println!(" {}", "ok".green());
+                            if !quiet {
+                                println!(" {}", "ok".green());
+                            }
+                            compiled += 1;
                         }
                         Err(e) => {
-                            println!(" {}", "FAILED".red());
+                            if !quiet {
+                                println!(" {}", "FAILED".red());
+                            }
                             eprintln!("    Runtime error: {}", e);
                             errors += 1;
+                            compiled += 1;
                         }
                     }
-                    compiled += 1;
                 }
                 Err(e) => {
-                    println!(" {}", "FAILED".red());
+                    if !quiet {
+                        println!(" {}", "FAILED".red());
+                    }
                     eprintln!("    Parse error: {}", e);
                     for err in parser.errors() {
                         eprintln!("    {}", err);
@@ -428,13 +454,17 @@ impl BuildSystem {
         // Update lock file
         self.update_lock_file()?;
 
-        println!();
+        if !quiet {
+            println!();
+        }
         if errors == 0 {
-            println!(
-                "  {} Built {} unit(s) successfully",
-                "Finished".green().bold(),
-                compiled
-            );
+            if !quiet {
+                println!(
+                    "  {} Built {} unit(s) successfully",
+                    "Finished".green().bold(),
+                    compiled
+                );
+            }
         } else {
             println!(
                 "  {} {} error(s) in {} unit(s)",
@@ -449,7 +479,7 @@ impl BuildSystem {
     }
 
     /// `pascal run` (project mode) — build then run the main program
-    pub fn run(&self) -> Result<()> {
+    pub fn run(&self, quiet: bool) -> Result<()> {
         let src_dir = self.project_root.join(&self.manifest.package.src);
 
         // Determine main file
@@ -473,7 +503,7 @@ impl BuildSystem {
             .parse_program()
             .map_err(|e| anyhow!("Parse error: {}", e))?;
 
-        let mut interp = crate::interpreter::Interpreter::new(self.verbose);
+        let mut interp = crate::interpreter::Interpreter::new(self.verbose && !quiet);
         interp
             .run_program(&program)
             .map_err(|e| anyhow!("Runtime error: {}", e))?;
@@ -507,18 +537,12 @@ impl BuildSystem {
             DependencySpec::Version(version.unwrap_or("*").to_string())
         };
 
-        self.manifest
-            .dependencies
-            .insert(name.to_string(), spec);
+        self.manifest.dependencies.insert(name.to_string(), spec);
 
         let manifest_path = self.project_root.join("pascal.toml");
         self.manifest.save(&manifest_path)?;
 
-        println!(
-            "{} Added dependency '{}'",
-            "Success:".green().bold(),
-            name
-        );
+        println!("{} Added dependency '{}'", "Success:".green().bold(), name);
         Ok(())
     }
 
@@ -643,6 +667,10 @@ impl BuildSystem {
         &self.manifest
     }
 
+    pub fn manifest_mut(&mut self) -> &mut Manifest {
+        &mut self.manifest
+    }
+
     pub fn project_root(&self) -> &Path {
         &self.project_root
     }
@@ -728,7 +756,11 @@ output = "dist"
         let dir = tempfile::tempdir().unwrap();
         let sub = dir.path().join("a").join("b").join("c");
         fs::create_dir_all(&sub).unwrap();
-        fs::write(dir.path().join("pascal.toml"), "[package]\nname = \"test\"\n").unwrap();
+        fs::write(
+            dir.path().join("pascal.toml"),
+            "[package]\nname = \"test\"\n",
+        )
+        .unwrap();
 
         let found = Manifest::find(&sub);
         assert!(found.is_some());
@@ -737,19 +769,38 @@ output = "dist"
 
     #[test]
     fn test_extract_uses() {
-        assert_eq!(extract_uses("program Foo; uses A, B, C; begin end."),
-                   vec!["A", "B", "C"]);
-        assert_eq!(extract_uses("program Foo; begin end."), Vec::<String>::new());
-        assert_eq!(extract_uses("program Foo;\nuses\n  SysUtils,\n  Classes;\nbegin\nend."),
-                   vec!["SysUtils", "Classes"]);
+        assert_eq!(
+            extract_uses("program Foo; uses A, B, C; begin end."),
+            vec!["A", "B", "C"]
+        );
+        assert_eq!(
+            extract_uses("program Foo; begin end."),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            extract_uses("program Foo;\nuses\n  SysUtils,\n  Classes;\nbegin\nend."),
+            vec!["SysUtils", "Classes"]
+        );
     }
 
     #[test]
     fn test_topo_sort_simple() {
         let units = vec![
-            BuildUnit { name: "a".into(), path: "a.pas".into(), uses: vec!["b".into()] },
-            BuildUnit { name: "b".into(), path: "b.pas".into(), uses: vec![] },
-            BuildUnit { name: "c".into(), path: "c.pas".into(), uses: vec!["a".into(), "b".into()] },
+            BuildUnit {
+                name: "a".into(),
+                path: "a.pas".into(),
+                uses: vec!["b".into()],
+            },
+            BuildUnit {
+                name: "b".into(),
+                path: "b.pas".into(),
+                uses: vec![],
+            },
+            BuildUnit {
+                name: "c".into(),
+                path: "c.pas".into(),
+                uses: vec!["a".into(), "b".into()],
+            },
         ];
         let order = topo_sort(&units).unwrap();
         let names: Vec<&str> = order.iter().map(|&i| units[i].name.as_str()).collect();
@@ -764,8 +815,16 @@ output = "dist"
     #[test]
     fn test_topo_sort_circular() {
         let units = vec![
-            BuildUnit { name: "a".into(), path: "a.pas".into(), uses: vec!["b".into()] },
-            BuildUnit { name: "b".into(), path: "b.pas".into(), uses: vec!["a".into()] },
+            BuildUnit {
+                name: "a".into(),
+                path: "a.pas".into(),
+                uses: vec!["b".into()],
+            },
+            BuildUnit {
+                name: "b".into(),
+                path: "b.pas".into(),
+                uses: vec!["a".into()],
+            },
         ];
         assert!(topo_sort(&units).is_err());
     }
@@ -796,7 +855,7 @@ output = "dist"
 
         let project = dir.path().join("testproj");
         let bs = BuildSystem::open(&project, false).unwrap();
-        bs.build().unwrap();
+        bs.build(false).unwrap();
 
         // Lock file should exist after build
         assert!(project.join("pascal.lock").exists());
@@ -811,7 +870,8 @@ output = "dist"
         let mut bs = BuildSystem::open(&project, false).unwrap();
 
         // Add
-        bs.add_dependency("mathlib", Some("1.0"), None, None).unwrap();
+        bs.add_dependency("mathlib", Some("1.0"), None, None)
+            .unwrap();
         assert!(bs.manifest().dependencies.contains_key("mathlib"));
 
         // Reload from disk
@@ -862,10 +922,11 @@ output = "dist"
         fs::write(
             src.join("multi.pas"),
             "program Multi;\nbegin\n  writeln('Multi project');\nend.\n",
-        ).unwrap();
+        )
+        .unwrap();
 
         let bs = BuildSystem::open(&project, false).unwrap();
-        bs.build().unwrap();
+        bs.build(false).unwrap();
     }
 
     #[test]
@@ -875,6 +936,6 @@ output = "dist"
 
         let project = dir.path().join("runtest");
         let bs = BuildSystem::open(&project, false).unwrap();
-        bs.run().unwrap();
+        bs.run(false).unwrap();
     }
 }

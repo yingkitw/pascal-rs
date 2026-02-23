@@ -235,7 +235,7 @@ impl SymbolTable {
             Type::Pointer(_) => 8,
             Type::Array { .. } => 8,  // Pointer to array
             Type::Record { .. } => 8, // Pointer to record
-            _ => 8, // Default size
+            _ => 8,                   // Default size
         }
     }
 

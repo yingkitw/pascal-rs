@@ -33,6 +33,14 @@ enum Commands {
         /// Verbose output
         #[arg(short, long)]
         verbose: bool,
+
+        /// Quiet mode (minimal output)
+        #[arg(short, long)]
+        quiet: bool,
+
+        /// Optimization level 0-3 (overrides pascal.toml)
+        #[arg(short = 'O', long)]
+        optimization: Option<u8>,
     },
 
     /// Add a dependency to the project
@@ -96,6 +104,10 @@ enum Commands {
         #[arg(short, long)]
         verbose: bool,
 
+        /// Quiet mode (minimal output)
+        #[arg(short, long)]
+        quiet: bool,
+
         /// Enable parallel compilation
         #[arg(short = 'j', long)]
         parallel: bool,
@@ -119,6 +131,59 @@ enum Commands {
         /// Verbose output
         #[arg(short, long)]
         verbose: bool,
+
+        /// Quiet mode (minimal output)
+        #[arg(short, long)]
+        quiet: bool,
+    },
+
+    /// Format Pascal source files
+    Fmt {
+        /// Pascal source file(s) or directory
+        #[arg(default_value = ".")]
+        path: Vec<PathBuf>,
+
+        /// Check-only (don't write, report if formatting would change)
+        #[arg(long)]
+        check: bool,
+
+        /// Create default configuration file
+        #[arg(long)]
+        init_config: bool,
+
+        /// Configuration file path
+        #[arg(long)]
+        config: Option<PathBuf>,
+
+        /// Process directories recursively
+        #[arg(long, default_value = "true")]
+        recursive: bool,
+
+        /// Use 2-space indentation
+        #[arg(long, conflicts_with_all = ["tabs", "indent_4"])]
+        indent_2: bool,
+
+        /// Use 4-space indentation
+        #[arg(long, conflicts_with_all = ["tabs", "indent_2"])]
+        indent_4: bool,
+
+        /// Use tabs for indentation
+        #[arg(long, conflicts_with_all = ["indent_2", "indent_4"])]
+        tabs: bool,
+
+        /// Maximum line length
+        #[arg(long)]
+        max_line_length: Option<usize>,
+
+        /// Verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    /// Check Pascal source for errors (parse + type-check, no codegen)
+    Check {
+        /// Pascal source file
+        input: PathBuf,
     },
 
     /// Clean compiled files
@@ -149,7 +214,13 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::Init { name, dir } => BuildSystem::init(&dir, &name),
 
-        Commands::Build { verbose } => open_project(verbose)?.build(),
+        Commands::Build { verbose, quiet, optimization } => {
+            let mut bs = open_project(verbose && !quiet)?;
+            if let Some(opt) = optimization {
+                bs.manifest_mut().build.optimization = opt;
+            }
+            bs.build(quiet)
+        }
 
         Commands::Add {
             name,
@@ -176,6 +247,7 @@ fn main() -> Result<()> {
             no_cache,
             asm,
             verbose,
+            quiet,
             parallel,
             threads,
         } => compile_file(
@@ -187,20 +259,29 @@ fn main() -> Result<()> {
             !no_ppu,
             !no_cache,
             asm,
-            verbose,
+            verbose && !quiet,
+            quiet,
             parallel,
             threads,
         ),
 
         Commands::Info { ppu_file } => show_ppu_info(ppu_file),
 
-        Commands::Run { input, verbose } => {
+        Commands::Run {
+            input,
+            verbose,
+            quiet,
+        } => {
             if let Some(file) = input {
-                run_file(file, verbose)
+                run_file(file, verbose && !quiet)
             } else {
-                open_project(verbose)?.run()
+                open_project(verbose && !quiet)?.run(quiet)
             }
         }
+
+        Commands::Fmt { path, check, .. } => fmt_files(path, check),
+
+        Commands::Check { input } => check_file(input),
 
         Commands::Clean { directory } => clean_directory(directory),
     }
@@ -216,6 +297,7 @@ fn compile_file(
     _use_ppu: bool,
     generate_asm: bool,
     verbose: bool,
+    quiet: bool,
     parallel: bool,
     threads: usize,
 ) -> Result<()> {
@@ -251,7 +333,11 @@ fn compile_file(
             .with_parallel_optimization(true);
 
         if let Err(e) = config.init_thread_pool() {
-            eprintln!("{} Failed to initialize thread pool: {}", "Error:".red().bold(), e);
+            eprintln!(
+                "{} Failed to initialize thread pool: {}",
+                "Error:".red().bold(),
+                e
+            );
             std::process::exit(1);
         }
 
@@ -292,7 +378,11 @@ fn compile_file(
 
     // Optimization
     if optimization > 0 && verbose {
-        println!("{} Optimization level {}", "Info:".cyan().bold(), optimization);
+        println!(
+            "{} Optimization level {}",
+            "Info:".cyan().bold(),
+            optimization
+        );
     }
 
     // Code generation (assembly)
@@ -334,18 +424,22 @@ fn compile_file(
         std::fs::create_dir_all(&output)?;
         std::fs::write(&asm_path, asm_output)?;
 
-        println!(
-            "{} Generated assembly: {}",
-            "Success:".green().bold(),
-            asm_path.display()
-        );
+        if !quiet {
+            println!(
+                "{} Generated assembly: {}",
+                "Success:".green().bold(),
+                asm_path.display()
+            );
+        }
     }
 
-    println!(
-        "{} Compiled '{}' successfully",
-        "Success:".green().bold(),
-        program.name
-    );
+    if !quiet {
+        println!(
+            "{} Compiled '{}' successfully",
+            "Success:".green().bold(),
+            program.name
+        );
+    }
 
     Ok(())
 }
@@ -379,7 +473,11 @@ fn run_file(input: PathBuf, verbose: bool) -> Result<()> {
     };
 
     if verbose {
-        println!("{} Parsed program '{}'", "Info:".cyan().bold(), program.name);
+        println!(
+            "{} Parsed program '{}'",
+            "Info:".cyan().bold(),
+            program.name
+        );
     }
 
     // Interpret
@@ -397,6 +495,119 @@ fn run_file(input: PathBuf, verbose: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn fmt_files(paths: Vec<PathBuf>, check_only: bool) -> Result<()> {
+    use std::fs;
+    use std::io::Write;
+
+    fn format_pascal(source: &str) -> String {
+        let lines: Vec<&str> = source.lines().collect();
+        let mut out = String::with_capacity(source.len());
+        let mut prev_blank = false;
+        for (i, line) in lines.iter().enumerate() {
+            let trimmed = line.trim_end();
+            let is_blank = trimmed.is_empty();
+            if is_blank {
+                if !prev_blank {
+                    out.push('\n');
+                }
+                prev_blank = true;
+            } else {
+                prev_blank = false;
+                out.push_str(trimmed);
+                if i + 1 < lines.len() {
+                    out.push('\n');
+                }
+            }
+        }
+        if !out.ends_with('\n') && !out.is_empty() {
+            out.push('\n');
+        }
+        out
+    }
+
+    let mut formatted = 0;
+    for path in paths {
+        if path.is_dir() {
+            for entry in fs::read_dir(&path)? {
+                let entry = entry?;
+                let p = entry.path();
+                if p.extension().and_then(|s| s.to_str()) == Some("pas") {
+                    let source = fs::read_to_string(&p)?;
+                    let formatted_source = format_pascal(&source);
+                    if source != formatted_source {
+                        formatted += 1;
+                        if !check_only {
+                            let mut f = fs::File::create(&p)?;
+                            f.write_all(formatted_source.as_bytes())?;
+                            println!("  Formatted: {}", p.display());
+                        } else {
+                            println!("  Would format: {}", p.display());
+                        }
+                    }
+                }
+            }
+        } else if path.extension().and_then(|s| s.to_str()) == Some("pas") {
+            let source = fs::read_to_string(&path)?;
+            let formatted_source = format_pascal(&source);
+            if source != formatted_source {
+                formatted += 1;
+                if !check_only {
+                    let mut f = fs::File::create(&path)?;
+                    f.write_all(formatted_source.as_bytes())?;
+                    println!("  Formatted: {}", path.display());
+                } else {
+                    println!("  Would format: {}", path.display());
+                }
+            }
+        }
+    }
+    if check_only && formatted > 0 {
+        println!(
+            "{} {} file(s) would be reformatted",
+            "Warning:".yellow().bold(),
+            formatted
+        );
+        std::process::exit(1);
+    } else if formatted > 0 {
+        println!(
+            "{} Formatted {} file(s)",
+            "Success:".green().bold(),
+            formatted
+        );
+    }
+    Ok(())
+}
+
+fn check_file(input: PathBuf) -> Result<()> {
+    if !input.exists() {
+        eprintln!(
+            "{} File not found: {}",
+            "Error:".red().bold(),
+            input.display()
+        );
+        std::process::exit(1);
+    }
+    let source = std::fs::read_to_string(&input)?;
+    let mut parser = pascal::parser::Parser::new(&source);
+    match parser.parse_program() {
+        Ok(program) => {
+            println!(
+                "{} Check passed for '{}' (parse OK)",
+                "Success:".green().bold(),
+                program.name
+            );
+            Ok(())
+        }
+        Err(e) => {
+            eprintln!("{} {}", "Parse error:".red().bold(), e);
+            for err in parser.errors() {
+                eprintln!("  {}", err);
+            }
+            std::process::exit(1);
+        }
+    }
 }
 
 fn show_ppu_info(ppu_file: PathBuf) -> Result<()> {
@@ -429,11 +640,20 @@ fn show_ppu_info(ppu_file: PathBuf) -> Result<()> {
             println!("  Constants: {}", ppu.module.unit.interface.constants.len());
             println!("  Variables: {}", ppu.module.unit.interface.variables.len());
             println!("  Functions: {}", ppu.module.unit.interface.functions.len());
-            println!("  Procedures: {}", ppu.module.unit.interface.procedures.len());
+            println!(
+                "  Procedures: {}",
+                ppu.module.unit.interface.procedures.len()
+            );
 
             println!("{}", "\nImplementation:".green().bold());
-            println!("  Functions: {}", ppu.module.unit.implementation.functions.len());
-            println!("  Procedures: {}", ppu.module.unit.implementation.procedures.len());
+            println!(
+                "  Functions: {}",
+                ppu.module.unit.implementation.functions.len()
+            );
+            println!(
+                "  Procedures: {}",
+                ppu.module.unit.implementation.procedures.len()
+            );
             println!(
                 "  Has initialization: {}",
                 ppu.module.unit.implementation.initialization.is_some()

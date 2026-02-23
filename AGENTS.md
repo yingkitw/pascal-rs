@@ -152,8 +152,6 @@ pub enum CompileError {
 - Use descriptive test names: `test_feature_under_test_condition`
 - Use `tempfile` for temporary files in tests
 - Use `assert_cmd` for CLI testing
-- Use `insta` for snapshot testing when appropriate
-
 ### Traits and Interfaces
 - Define traits for major components (`LexerCapability`, `ParserCapability`, etc.)
 - Use trait objects for dependency injection

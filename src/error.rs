@@ -3,6 +3,8 @@
 use std::path::PathBuf;
 use thiserror::Error;
 
+use crate::lexer::LexerError;
+
 /// Compilation result
 #[derive(Debug)]
 pub struct CompileResult {
@@ -40,6 +42,18 @@ pub enum CompilerError {
 
     #[error("Compilation error: {0}")]
     CompilationError(String),
+}
+
+impl From<LexerError> for CompilerError {
+    fn from(err: LexerError) -> Self {
+        CompilerError::ParseError(err.to_string())
+    }
+}
+
+impl From<crate::ast::ModuleError> for CompilerError {
+    fn from(err: crate::ast::ModuleError) -> Self {
+        CompilerError::CompilationError(err.to_string())
+    }
 }
 
 /// Parse error type alias for convenience
