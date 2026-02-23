@@ -1,0 +1,43 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Pascal",
+  "scopeName": "source.pascal",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#keywords" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        { "name": "comment.line.double-slash.pascal", "match": "//.*$" },
+        { "name": "comment.block.pascal", "begin": "\\{\\*?", "end": "\\*?\\}" }
+      ]
+    },
+    "keywords": {
+      "patterns": [{
+        "name": "keyword.control.pascal",
+        "match": "\\b(program|unit|uses|interface|implementation|begin|end|var|const|type|procedure|function|if|then|else|while|do|for|to|downto|repeat|until|case|of|try|except|finally|raise|exit|break|continue|and|or|not|xor|in|is|as)\\b"
+      }]
+    },
+    "strings": {
+      "patterns": [
+        { "name": "string.quoted.single.pascal", "match": "'([^']|'')*'" },
+        { "name": "string.quoted.double.pascal", "begin": "\"", "end": "\"" }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        { "name": "constant.numeric.integer.pascal", "match": "\\b\\d+\\b" },
+        { "name": "constant.numeric.real.pascal", "match": "\\b\\d+\\.\\d+([eE][+-]?\\d+)?\\b" }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        { "name": "entity.name.function.pascal", "match": "\\b(writeln|write|readln|read|ord|chr|length|copy|pos)\\b" }
+      ]
+    }
+  }
+}

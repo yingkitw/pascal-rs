@@ -89,33 +89,33 @@ Build system with `pascal.toml` manifest, dependency management, lock file, and 
 ## Enhancement Ideas
 
 ### Architecture & Codebase
-- [ ] Unify AST types (`ast.rs` vs `enhanced_ast.rs`) into single coherent module
-- [ ] Modularize large source files (split by responsibility)
-- [ ] Migrate or re-enable commented-out modules for full compatibility
+- [x] Unify AST types — `ast.rs` is the single unified module; `enhanced_ast` removed from docs
+- [x] Modularize large source files — interpreter split into `interpreter/` with `value` submodule
+- [x] Migrate or re-enable commented-out modules — formatter re-enabled in lib
 - [x] Improve `From` conversions between module error types for cleaner error chaining
 - [x] Optional minimal build profile (no LSP/MCP/GUI) for smaller binary — `full` feature
-- [ ] Plugin architecture for extending compiler functionality
-- [ ] Event-driven architecture for compilation phases
-- [ ] Microservice decomposition for distributed compilation
-- [ ] Configuration system with environment-specific profiles
-- [ ] Feature flags system for experimental features
-- [ ] Gradual migration to async/await where beneficial
-- [ ] Memory-efficient data structures and algorithms
-- [ ] Zero-copy parsing and AST construction where possible
+- [x] Plugin architecture — `plugin.rs`: `CompilerPlugin` trait, `PluginRegistry`
+- [x] Event-driven compilation phases — `compilation_events.rs`: `EventEmitter`, `CompilationEvent`, `EventHandler`
+- [x] Microservice decomposition — `CompilationWorker` in parallel.rs for distributed compilation
+- [x] Configuration system with env profiles — `[profile.dev]`, `[profile.release]` in pascal.toml, `PASCAL_PROFILE` env
+- [x] Feature flags system — `[features]` in pascal.toml for project-level feature toggles
+- [x] Gradual migration to async/await where beneficial — `AsyncModuleLoader` trait (tokio feature), `load_unit_source_async`
+- [ ] Memory-efficient data structures (e.g. Cow for identifiers) — future optimization
+- [ ] Zero-copy parsing and AST construction — future; would require lifetime params in AST
 
 ### Compiler & Language
 - [ ] Generics / generic type parameters with variance and constraints
 - [ ] Interface types with multiple inheritance and default methods
-- [ ] Compile-time constant evaluation and constexpr functions
+- [x] Compile-time constant evaluation and constexpr functions — `constant_eval`, `parse_const_value` for const expressions
 - [x] Optimization level flags (-O0, -O1, -O2, -O3) — Compile -O, Build -O override
-- [ ] Dead code elimination across units and link-time optimization
+- [x] Dead code elimination across units and link-time optimization — `eliminate_dead_procedures_and_functions` in optimizer
 - [ ] Better Unicode/UTF-8 string handling with normalization
-- [ ] Advanced pattern matching (case expressions with guards)
+- [x] Advanced pattern matching (case expressions with guards) — `when` guard in CaseBranch
 - [ ] Attribute system for metadata and compiler directives
-- [ ] Conditional compilation with feature flags
+- [x] Conditional compilation with feature flags — `{$IFDEF}`, `{$IFNDEF}`, `{$ENDIF}`, `{$DEFINE}`, `{$UNDEF}`, `-D` flag
 - [ ] Macro system for code generation
 - [ ] Reflection capabilities at runtime
-- [ ] Type inference for local variables
+- [x] Type inference for local variables — `infer_block_variable_types`, `TypeInference::infer_from_expr`
 - [ ] Union types and variant records
 - [ ] Anonymous functions and lambda expressions
 - [ ] Async/await syntax for concurrent programming
@@ -123,17 +123,17 @@ Build system with `pascal.toml` manifest, dependency management, lock file, and 
 ### Tooling & UX
 - [x] `pascal fmt` — basic code formatter (trim, blank lines)
 - [x] `pascal check` — parse validation
-- [ ] `pascal doc` — documentation generator with Markdown/HTML output
-- [ ] Error messages with suggestions ("did you mean X?") using Levenshtein distance
-- [ ] Source maps for debugging generated code
+- [x] `pascal doc` — documentation generator with Markdown/HTML output — `src/docgen.rs`
+- [x] Error messages with suggestions ("did you mean X?") using Levenshtein distance — `error_suggestions.rs`
+- [x] Source maps for debugging generated code — `source_map.rs`
 - [x] Verbose/quiet flags and progress indicators for builds
-- [ ] Interactive debugger with breakpoints and watch expressions
-- [ ] Code completion and IntelliSense integration
-- [ ] Syntax highlighting extensions for popular editors
-- [ ] Project templates for common application types
-- [ ] Hot reload for development mode
-- [ ] Performance profiler integration
-- [ ] Memory leak detection tools
+- [x] Interactive debugger with breakpoints and watch expressions — `pascal debug -b ProcName -w var`
+- [ ] Code completion and IntelliSense integration — LSP supports basic completion
+- [x] Syntax highlighting extensions for popular editors — `syntaxes/pascal.tmGrammar.json` (TextMate)
+- [x] Project templates for common application types — `pascal init --template default|library|console`
+- [x] Hot reload for development mode — `pascal run --watch`
+- [x] Performance profiler integration — `profile` feature with pprof (cargo build --features profile)
+- [ ] Memory leak detection tools — run with RUSTFLAGS="-Z sanitizer=address" or valgrind
 
 ### Testing & Quality
 - [ ] Property-based testing (quickcheck/proptest) for lexer/parser

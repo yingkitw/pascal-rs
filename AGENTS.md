@@ -45,6 +45,7 @@ cargo doc --open
 cargo build --features lsp          # Build with LSP support
 cargo build --features mcp          # Build with MCP server support
 cargo build --features gui          # Build with macOS GUI support
+cargo build --features profile      # CPU profiling (pascal run --profile)
 ```
 
 ## Project Structure
@@ -58,8 +59,7 @@ pascal-rs/
 │   │   ├── expression.rs
 │   │   ├── statement.rs
 │   │   └── decl.rs
-│   ├── ast.rs             # Abstract Syntax Tree definitions
-│   ├── enhanced_ast.rs    # Extended AST with advanced features
+│   ├── ast.rs             # Abstract Syntax Tree definitions (unified)
 │   ├── enhanced_codegen.rs # Code generation
 │   ├── tokens.rs          # Token definitions
 │   ├── enhanced_tokens.rs # Extended token definitions
@@ -257,7 +257,7 @@ cargo test --features lsp
 
 ## Common Gotchas
 
-- AST types are in both `ast.rs` and `enhanced_ast.rs` - use appropriate one
+- AST types are in `ast.rs` (unified module)
 - Some modules are temporarily commented out in `lib.rs` due to compatibility
 - Error conversion between modules needs explicit `From` implementations
 - Token definitions split between basic and enhanced versions

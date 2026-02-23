@@ -213,6 +213,9 @@ pub enum ForDirection {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CaseBranch {
     pub values: Vec<Expression>,
+    /// Optional guard: when cond, branch is taken only if cond is true (case x of 1 when b: ...)
+    #[serde(default)]
+    pub guard: Option<Expression>,
     pub body: Vec<Statement>,
 }
 

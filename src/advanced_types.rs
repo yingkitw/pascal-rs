@@ -194,6 +194,49 @@ impl TypeInference {
     pub fn resolve(&self) -> HashMap<String, Type> {
         self.type_vars.clone()
     }
+
+    /// Infer variable type from initializer expression
+    pub fn infer_from_expr(expr: &Expr) -> Type {
+        match expr {
+            Expr::Literal(crate::ast::Literal::Integer(_)) => Type::Integer,
+            Expr::Literal(crate::ast::Literal::Real(_)) => Type::Real,
+            Expr::Literal(crate::ast::Literal::Boolean(_)) => Type::Boolean,
+            Expr::Literal(crate::ast::Literal::Char(_)) => Type::Char,
+            Expr::Literal(crate::ast::Literal::String(_)) => Type::String,
+            Expr::BinaryOp { operator, left, right } => {
+                let lt = Self::infer_from_expr(left);
+                let rt = Self::infer_from_expr(right);
+                match operator.as_str() {
+                    "=" | "<>" | "<" | "<=" | ">" | ">=" | "and" | "or" | "xor" => Type::Boolean,
+                    _ => {
+                        if matches!(lt, Type::Real) || matches!(rt, Type::Real) {
+                            Type::Real
+                        } else {
+                            lt
+                        }
+                    }
+                }
+            }
+            Expr::UnaryOp { operator, operand } => {
+                let t = Self::infer_from_expr(operand);
+                if operator == "not" {
+                    Type::Boolean
+                } else {
+                    t
+                }
+            }
+            _ => Type::Integer,
+        }
+    }
+}
+
+/// Infer types for block variables that have initial values
+pub fn infer_block_variable_types(block: &mut crate::ast::Block) {
+    for var_decl in &mut block.vars {
+        if let Some(ref expr) = var_decl.initial_value {
+            var_decl.variable_type = TypeInference::infer_from_expr(expr);
+        }
+    }
 }
 
 impl Default for TypeInference {

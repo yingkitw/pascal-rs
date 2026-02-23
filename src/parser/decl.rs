@@ -5,6 +5,7 @@ use crate::ast::{
     ProcedureDecl, PropertyDecl, SimpleType, Type, TypeDecl, Unit, UnitImplementation,
     UnitInterface, VariableDecl,
 };
+use crate::constant_eval;
 use crate::parser::{ParseResult, Parser};
 use crate::tokens::Token;
 use crate::ParseError;
@@ -137,7 +138,7 @@ impl<'a> Parser<'a> {
                     self.advance();
                     self.consume_or_skip(Token::Equal, &[Token::Var, Token::Begin]);
 
-                    if let Some(literal) = self.parse_literal_int()? {
+                    if let Some(literal) = self.parse_const_value()? {
                         consts.push(crate::ast::ConstDecl {
                             name,
                             value: literal,
@@ -292,7 +293,7 @@ impl<'a> Parser<'a> {
                             ],
                         );
 
-                        if let Some(literal) = self.parse_literal_int()? {
+                        if let Some(literal) = self.parse_const_value()? {
                             constants.push(ConstDecl {
                                 name,
                                 value: literal,
@@ -522,7 +523,7 @@ impl<'a> Parser<'a> {
                             &[Token::Var, Token::Procedure, Token::Function, Token::Begin],
                         );
 
-                        if let Some(literal) = self.parse_literal_int()? {
+                        if let Some(literal) = self.parse_const_value()? {
                             constants.push(ConstDecl {
                                 name,
                                 value: literal,
@@ -1425,7 +1426,33 @@ impl<'a> Parser<'a> {
         self.parse_compound_statement()
     }
 
-    /// Parse a literal value
+    /// Parse a constant value: expression that must evaluate to a compile-time constant
+    fn parse_const_value(&mut self) -> ParseResult<Option<crate::ast::Literal>> {
+        let expr = self.parse_expression()?;
+        match expr {
+            Some(e) => match constant_eval::eval_constant(&e) {
+                Ok(Some(lit)) => Ok(Some(lit)),
+                Ok(None) => {
+                    self.errors
+                        .push(ParseError::CompilationError(
+                            "constant expression required for const".to_string(),
+                        ));
+                    Ok(None)
+                }
+                Err(e) => {
+                    self.errors
+                        .push(ParseError::CompilationError(format!(
+                            "invalid constant expression: {}",
+                            e
+                        )));
+                    Ok(None)
+                }
+            },
+            None => Ok(None),
+        }
+    }
+
+    /// Parse a literal value (deprecated: use parse_const_value for const declarations)
     fn parse_literal_int(&mut self) -> ParseResult<Option<crate::ast::Literal>> {
         match self.peek() {
             Some(Token::IntegerLiteral(_)) => {

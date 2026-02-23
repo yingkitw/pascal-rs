@@ -1,0 +1,39 @@
+indent_style = "Spaces"
+indent_width = 2
+max_line_length = 120
+line_ending = "Lf"
+comment_style = "Line"
+trailing_comma = "Never"
+align_declarations = false
+align_assignments = false
+
+[operator_spacing]
+assignment = true
+arithmetic = true
+comparison = true
+logical = true
+colon = false
+semicolon = true
+comma = true
+
+[bracket_spacing]
+paren_open = false
+paren_close = false
+bracket_open = false
+bracket_close = false
+brace_open = true
+brace_close = true
+
+[case_spacing]
+before_case = false
+after_case = true
+indent_labels = false
+
+[blank_lines]
+between_declarations = 1
+between_routines = 2
+before_begin = 0
+after_end = 1
+before_case = 1
+after_case = 1
+max_consecutive = 1

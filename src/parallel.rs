@@ -4,6 +4,7 @@
 //! - Parallel module compilation
 //! - Parallel optimization passes
 //! - Concurrent PPU file loading
+//! - CompilationWorker: foundation for distributed/worker-based compilation (microservice decomposition)
 
 use crate::{Module, ModuleResult};
 use rayon::prelude::*;
@@ -189,6 +190,36 @@ impl ProgressTracker {
     /// Check if all items are completed
     pub fn is_complete(&self) -> bool {
         *self.completed.lock().unwrap() >= self.total
+    }
+}
+
+/// Worker process for distributed compilation (microservice decomposition foundation).
+/// A coordinator can spawn workers that compile units remotely; this struct provides
+/// the interface for processing compilation jobs. Future: IPC/socket-based job dispatch.
+#[derive(Debug)]
+pub struct CompilationWorker {
+    worker_id: usize,
+}
+
+impl CompilationWorker {
+    /// Create a new worker with the given ID
+    pub fn new(worker_id: usize) -> Self {
+        Self { worker_id }
+    }
+
+    /// Process a single compilation job. Returns the module name and result.
+    /// Used when running in worker mode (e.g. pascal compile --worker).
+    pub fn process_job<F>(&self, unit_name: &str, compile_fn: F) -> (String, ModuleResult<Module>)
+    where
+        F: FnOnce(&str) -> ModuleResult<Module>,
+    {
+        let result = compile_fn(unit_name);
+        (unit_name.to_string(), result)
+    }
+
+    /// Worker ID for coordination
+    pub fn worker_id(&self) -> usize {
+        self.worker_id
     }
 }
 

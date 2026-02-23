@@ -3,6 +3,7 @@
 //! Provides constant folding, dead code elimination, and peephole optimization
 
 use crate::ast::{Block, Expr, Literal, Stmt};
+use std::collections::HashSet;
 
 /// Optimizer for expressions and statements
 pub struct Optimizer {
@@ -199,6 +200,153 @@ impl Optimizer {
         }
     }
 
+    /// Collect procedure/function names called from block (recursively, fixed-point)
+    fn collect_calls(block: &Block, calls: &mut HashSet<String>) {
+        for stmt in &block.statements {
+            Optimizer::collect_calls_from_stmt(stmt, calls);
+        }
+        loop {
+            let prev_len = calls.len();
+            for proc in &block.procedures {
+                if calls.contains(&proc.name.to_lowercase()) {
+                    Optimizer::collect_calls(&proc.block, calls);
+                }
+            }
+            for func in &block.functions {
+                if calls.contains(&func.name.to_lowercase()) {
+                    Optimizer::collect_calls(&func.block, calls);
+                }
+            }
+            if calls.len() == prev_len {
+                break;
+            }
+        }
+    }
+
+    fn collect_calls_from_stmt(stmt: &Stmt, calls: &mut HashSet<String>) {
+        match stmt {
+            Stmt::ProcedureCall { name, arguments } => {
+                calls.insert(name.to_lowercase());
+                for arg in arguments {
+                    Optimizer::collect_calls_from_expr(arg, calls);
+                }
+            }
+            Stmt::Assignment { value, .. } => Optimizer::collect_calls_from_expr(value, calls),
+            Stmt::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                Optimizer::collect_calls_from_expr(condition, calls);
+                for s in then_branch {
+                    Optimizer::collect_calls_from_stmt(s, calls);
+                }
+                if let Some(else_stmts) = else_branch {
+                    for s in else_stmts {
+                        Optimizer::collect_calls_from_stmt(s, calls);
+                    }
+                }
+            }
+            Stmt::While { condition, body } => {
+                Optimizer::collect_calls_from_expr(condition, calls);
+                for s in body {
+                    Optimizer::collect_calls_from_stmt(s, calls);
+                }
+            }
+            Stmt::For {
+                start,
+                end,
+                body,
+                ..
+            } => {
+                Optimizer::collect_calls_from_expr(start, calls);
+                Optimizer::collect_calls_from_expr(end, calls);
+                for s in body {
+                    Optimizer::collect_calls_from_stmt(s, calls);
+                }
+            }
+            Stmt::Repeat { body, until_condition } => {
+                Optimizer::collect_calls_from_expr(until_condition, calls);
+                for s in body {
+                    Optimizer::collect_calls_from_stmt(s, calls);
+                }
+            }
+            Stmt::Case {
+                expression,
+                branches,
+                else_branch,
+            } => {
+                Optimizer::collect_calls_from_expr(expression, calls);
+                for branch in branches {
+                    if let Some(ref g) = branch.guard {
+                        Optimizer::collect_calls_from_expr(g, calls);
+                    }
+                    for s in &branch.body {
+                        Optimizer::collect_calls_from_stmt(s, calls);
+                    }
+                }
+                if let Some(else_stmts) = else_branch {
+                    for s in else_stmts {
+                        Optimizer::collect_calls_from_stmt(s, calls);
+                    }
+                }
+            }
+            Stmt::Try {
+                try_block,
+                except_clauses,
+                finally_block,
+            } => {
+                for s in try_block {
+                    Optimizer::collect_calls_from_stmt(s, calls);
+                }
+                for ec in except_clauses {
+                    for s in &ec.body {
+                        Optimizer::collect_calls_from_stmt(s, calls);
+                    }
+                }
+                if let Some(fb) = finally_block {
+                    for s in fb {
+                        Optimizer::collect_calls_from_stmt(s, calls);
+                    }
+                }
+            }
+            Stmt::With { variable, statements } => {
+                Optimizer::collect_calls_from_expr(variable, calls);
+                for s in statements {
+                    Optimizer::collect_calls_from_stmt(s, calls);
+                }
+            }
+            Stmt::Block(b) => Optimizer::collect_calls(b, calls),
+            _ => {}
+        }
+    }
+
+    fn collect_calls_from_expr(expr: &Expr, calls: &mut HashSet<String>) {
+        match expr {
+            Expr::FunctionCall { name, arguments } => {
+                calls.insert(name.to_lowercase());
+                for arg in arguments {
+                    Optimizer::collect_calls_from_expr(arg, calls);
+                }
+            }
+            Expr::BinaryOp { left, right, .. } => {
+                Optimizer::collect_calls_from_expr(left, calls);
+                Optimizer::collect_calls_from_expr(right, calls);
+            }
+            Expr::UnaryOp { operand, .. } => Optimizer::collect_calls_from_expr(operand, calls),
+            _ => {}
+        }
+    }
+
+    /// Eliminate procedures and functions never called from the block (single-unit DCE)
+    pub fn eliminate_dead_procedures_and_functions(block: &mut Block) {
+        let mut used = HashSet::new();
+        Optimizer::collect_calls(block, &mut used);
+
+        block.procedures.retain(|p| used.contains(&p.name.to_lowercase()));
+        block.functions.retain(|f| used.contains(&f.name.to_lowercase()));
+    }
+
     /// Peephole optimization on assembly instructions
     pub fn peephole_optimize(&self, instructions: &[String]) -> Vec<String> {
         let mut optimized = Vec::new();
@@ -307,5 +455,56 @@ mod tests {
 
         let result = optimizer.optimize_stmt(&stmt);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_eliminate_dead_procedures() {
+        use crate::ast::{Block, ProcedureDecl};
+
+        let mut block = Block {
+            consts: vec![],
+            types: vec![],
+            vars: vec![],
+            procedures: vec![
+                ProcedureDecl {
+                    name: "Used".to_string(),
+                    parameters: vec![],
+                    block: Block::empty(),
+                    visibility: crate::ast::FieldVisibility::Public,
+                    is_external: false,
+                    external_name: None,
+                    is_inline: false,
+                    is_forward: false,
+                    is_class_method: false,
+                    is_virtual: false,
+                    is_override: false,
+                    is_overload: false,
+                },
+                ProcedureDecl {
+                    name: "Dead".to_string(),
+                    parameters: vec![],
+                    block: Block::empty(),
+                    visibility: crate::ast::FieldVisibility::Public,
+                    is_external: false,
+                    external_name: None,
+                    is_inline: false,
+                    is_forward: false,
+                    is_class_method: false,
+                    is_virtual: false,
+                    is_override: false,
+                    is_overload: false,
+                },
+            ],
+            functions: vec![],
+            classes: vec![],
+            statements: vec![Stmt::ProcedureCall {
+                name: "Used".to_string(),
+                arguments: vec![],
+            }],
+        };
+
+        Optimizer::eliminate_dead_procedures_and_functions(&mut block);
+        assert_eq!(block.procedures.len(), 1);
+        assert_eq!(block.procedures[0].name, "Used");
     }
 }

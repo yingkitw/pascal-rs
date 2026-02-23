@@ -250,6 +250,15 @@ impl<'a> Parser<'a> {
                 }
             }
 
+            // Optional guard: when cond (e.g. "1 when x > 0:")
+            let mut guard = None;
+            if self.check(Token::When) {
+                self.advance();
+                if let Some(cond) = self.parse_expression()? {
+                    guard = Some(cond);
+                }
+            }
+
             self.consume_or_skip(Token::Colon, &[Token::End, Token::Semicolon]);
 
             // Parse the branch body (single statement)
@@ -258,7 +267,11 @@ impl<'a> Parser<'a> {
                 body.push(stmt);
             }
 
-            branches.push(CaseBranch { values, body });
+            branches.push(CaseBranch {
+                values,
+                guard,
+                body,
+            });
 
             if self.check(Token::Semicolon) {
                 self.advance();

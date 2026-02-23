@@ -1,139 +1,16 @@
 //! Tree-walking interpreter for Pascal programs
 //!
 //! Executes Pascal AST directly without compilation.
+//!
+//! Modular structure: `value` submodule contains Value, Scope, PascalException, EarlyReturn.
+
+mod value;
+pub use value::*;
 
 use crate::ast::{Block, Expr, ForDirection, Literal, Program, Stmt};
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use std::io::{self, Write};
-
-/// A Pascal exception that propagates through the interpreter
-#[derive(Debug, Clone)]
-pub struct PascalException {
-    pub class_name: String,
-    pub message: String,
-}
-
-impl std::fmt::Display for PascalException {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.class_name, self.message)
-    }
-}
-
-impl std::error::Error for PascalException {}
-
-/// Early return signal (for exit from functions/procedures)
-#[derive(Debug, Clone)]
-pub struct EarlyReturn {
-    pub value: Option<Value>,
-}
-
-impl std::fmt::Display for EarlyReturn {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "EarlyReturn")
-    }
-}
-
-impl std::error::Error for EarlyReturn {}
-
-/// Runtime value
-#[derive(Debug, Clone, PartialEq)]
-pub enum Value {
-    Integer(i64),
-    Real(f64),
-    Boolean(bool),
-    Char(char),
-    String(String),
-    Nil,
-    Object {
-        class_name: String,
-        fields: HashMap<String, Value>,
-    },
-    Array {
-        elements: Vec<Value>,
-        lower_bound: i64,
-    },
-    Record {
-        fields: HashMap<String, Value>,
-    },
-}
-
-impl std::fmt::Display for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Value::Integer(n) => write!(f, "{}", n),
-            Value::Real(r) => write!(f, "{}", r),
-            Value::Boolean(b) => write!(f, "{}", if *b { "TRUE" } else { "FALSE" }),
-            Value::Char(c) => write!(f, "{}", c),
-            Value::String(s) => write!(f, "{}", s),
-            Value::Nil => write!(f, "nil"),
-            Value::Object { class_name, .. } => write!(f, "<{}>", class_name),
-            Value::Array { elements, .. } => {
-                let items: Vec<std::string::String> =
-                    elements.iter().map(|v| format!("{}", v)).collect();
-                write!(f, "({})", items.join(", "))
-            }
-            Value::Record { fields } => {
-                let items: Vec<std::string::String> = fields
-                    .iter()
-                    .map(|(k, v)| format!("{}: {}", k, v))
-                    .collect();
-                write!(f, "record({})", items.join("; "))
-            }
-        }
-    }
-}
-
-impl Value {
-    fn as_integer(&self) -> Result<i64> {
-        match self {
-            Value::Integer(n) => Ok(*n),
-            Value::Real(r) => Ok(*r as i64),
-            Value::Boolean(b) => Ok(if *b { 1 } else { 0 }),
-            Value::Char(c) => Ok(*c as i64),
-            _ => Err(anyhow!("Cannot convert {:?} to integer", self)),
-        }
-    }
-
-    fn as_real(&self) -> Result<f64> {
-        match self {
-            Value::Integer(n) => Ok(*n as f64),
-            Value::Real(r) => Ok(*r),
-            _ => Err(anyhow!("Cannot convert {:?} to real", self)),
-        }
-    }
-
-    fn as_boolean(&self) -> Result<bool> {
-        match self {
-            Value::Boolean(b) => Ok(*b),
-            Value::Integer(n) => Ok(*n != 0),
-            _ => Err(anyhow!("Cannot convert {:?} to boolean", self)),
-        }
-    }
-
-    fn is_real(&self) -> bool {
-        matches!(self, Value::Real(_))
-    }
-}
-
-/// Variable scope
-#[derive(Debug, Clone)]
-pub struct Scope {
-    variables: HashMap<String, Value>,
-}
-
-impl Scope {
-    fn new() -> Self {
-        Self {
-            variables: HashMap::new(),
-        }
-    }
-
-    /// Get a variable value by name (for testing purposes)
-    pub fn get(&self, name: &str) -> Option<&Value> {
-        self.variables.get(&name.to_lowercase())
-    }
-}
 
 /// User-defined function/procedure
 #[derive(Debug, Clone)]
@@ -144,12 +21,21 @@ struct UserFunction {
     return_type_name: String,
 }
 
+/// Callback invoked before a user procedure/function when debugging (name -> should break)
+pub type DebugBreakpointCheck = Box<dyn FnMut(&str) -> bool>;
+
+/// Callback invoked when a breakpoint is hit (can show REPL, inspect state)
+pub type DebugBreakpointHandler = Box<dyn FnMut(&mut Interpreter)>;
+
 /// Pascal interpreter
 pub struct Interpreter {
     scopes: Vec<Scope>,
     functions: HashMap<String, UserFunction>,
     classes: HashMap<String, crate::ast::ClassDecl>,
     verbose: bool,
+    /// When set, called before user procedure; if returns true, handler is invoked
+    pub debug_breakpoint_check: Option<DebugBreakpointCheck>,
+    pub debug_breakpoint_handler: Option<DebugBreakpointHandler>,
 }
 
 impl Interpreter {
@@ -157,21 +43,17 @@ impl Interpreter {
     pub fn new(verbose: bool) -> Self {
         let mut global = Scope::new();
         // Pre-define some common constants
-        global
-            .variables
-            .insert("maxint".to_string(), Value::Integer(i64::MAX));
-        global
-            .variables
-            .insert("true".to_string(), Value::Boolean(true));
-        global
-            .variables
-            .insert("false".to_string(), Value::Boolean(false));
+        global.insert("maxint".to_string(), Value::Integer(i64::MAX));
+        global.insert("true".to_string(), Value::Boolean(true));
+        global.insert("false".to_string(), Value::Boolean(false));
 
         Self {
             scopes: vec![global],
             functions: HashMap::new(),
             classes: HashMap::new(),
             verbose,
+            debug_breakpoint_check: None,
+            debug_breakpoint_handler: None,
         }
     }
 
@@ -186,7 +68,7 @@ impl Interpreter {
     pub fn get_variable_value(&self, name: &str) -> Option<Value> {
         let name_lower = name.to_lowercase();
         for scope in self.scopes.iter().rev() {
-            if let Some(val) = scope.variables.get(&name_lower) {
+            if let Some(val) = scope.get(&name_lower) {
                 return Some(val.clone());
             }
         }
@@ -489,6 +371,13 @@ impl Interpreter {
                     for case_val in &branch.values {
                         let cv = self.eval_expr(case_val)?;
                         if val == cv {
+                            // Check guard if present (case x of 1 when cond: stmt)
+                            if let Some(ref guard_expr) = branch.guard {
+                                let guard_val = self.eval_expr(guard_expr)?;
+                                if !guard_val.as_boolean().unwrap_or(false) {
+                                    continue; // Guard failed, try next branch
+                                }
+                            }
                             matched = true;
                             for s in &branch.body {
                                 self.execute_stmt(s)?;
@@ -549,7 +438,7 @@ impl Interpreter {
                     Value::Object { ref fields, .. } | Value::Record { ref fields } => {
                         let mut scope = Scope::new();
                         for (k, v) in fields {
-                            scope.variables.insert(k.clone(), v.clone());
+                            scope.insert(k.clone(), v.clone());
                         }
                         self.scopes.push(scope);
                         for s in statements {
@@ -558,7 +447,7 @@ impl Interpreter {
                         // Write back modified fields
                         let modified = self.scopes.pop().unwrap();
                         if let Expr::Variable(var_name) = variable {
-                            for (k, v) in &modified.variables {
+                            for (k, v) in modified.iter() {
                                 let dotted = format!("{}.{}", var_name, k);
                                 self.set_variable(&dotted, v.clone());
                             }
@@ -1057,6 +946,17 @@ impl Interpreter {
                 }
                 // Try user-defined function/procedure
                 if let Some(user_func) = self.functions.get(&name_lower).cloned() {
+                    let should_break = self
+                        .debug_breakpoint_check
+                        .as_mut()
+                        .map(|c| c(&name_lower))
+                        .unwrap_or(false);
+                    if should_break {
+                        if let Some(mut handler) = self.debug_breakpoint_handler.take() {
+                            handler(self);
+                            self.debug_breakpoint_handler = Some(handler);
+                        }
+                    }
                     self.call_user_function(&user_func, arguments)?;
                 } else if self.verbose {
                     eprintln!("[interpreter] Unknown procedure: {}", name);
@@ -1594,7 +1494,7 @@ impl Interpreter {
         }
 
         for scope in self.scopes.iter().rev() {
-            if let Some(val) = scope.variables.get(&name_lower) {
+            if let Some(val) = scope.get(&name_lower) {
                 return Ok(val.clone());
             }
         }
@@ -1607,7 +1507,7 @@ impl Interpreter {
     fn set_local_variable(&mut self, name: &str, value: Value) {
         let name_lower = name.to_lowercase();
         if let Some(scope) = self.scopes.last_mut() {
-            scope.variables.insert(name_lower, value);
+            scope.insert(name_lower, value);
         }
     }
 
@@ -1621,7 +1521,7 @@ impl Interpreter {
             let obj_name = name_lower[..dot_pos].to_string();
             let field_name = name_lower[dot_pos + 1..].to_string();
             for scope in self.scopes.iter_mut().rev() {
-                if let Some(obj_val) = scope.variables.get_mut(&obj_name) {
+                if let Some(obj_val) = scope.get_mut(&obj_name) {
                     match obj_val {
                         Value::Object { fields, .. } => {
                             fields.insert(field_name, value);
@@ -1640,14 +1540,14 @@ impl Interpreter {
 
         // Search existing scopes from innermost
         for scope in self.scopes.iter_mut().rev() {
-            if scope.variables.contains_key(&name_lower) {
-                scope.variables.insert(name_lower, value);
+            if scope.contains_key(&name_lower) {
+                scope.insert(name_lower, value);
                 return;
             }
         }
         // If not found, insert in current (innermost) scope
         if let Some(scope) = self.scopes.last_mut() {
-            scope.variables.insert(name_lower, value);
+            scope.insert(name_lower, value);
         }
     }
 }

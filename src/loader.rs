@@ -207,6 +207,36 @@ impl Default for ModuleLoader {
     }
 }
 
+/// Async module loading trait for use with tokio (LSP, etc.)
+#[cfg(feature = "tokio")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
+pub trait AsyncModuleLoader: Send + Sync {
+    /// Load unit source asynchronously
+    fn load_unit_source_async(
+        &self,
+        unit_name: &str,
+    ) -> impl std::future::Future<Output = ModuleResult<(PathBuf, String)>> + Send;
+}
+
+#[cfg(feature = "tokio")]
+impl AsyncModuleLoader for ModuleLoader {
+    async fn load_unit_source_async(
+        &self,
+        unit_name: &str,
+    ) -> ModuleResult<(PathBuf, String)> {
+        let path = self.find_unit_file(unit_name)?;
+        let path_clone = path.clone();
+        let name = unit_name.to_string();
+        let source = tokio::task::spawn_blocking(move || {
+            std::fs::read_to_string(&path_clone)
+                .map_err(|e| ModuleError::LoadError(name, e.to_string()))
+        })
+        .await
+        .map_err(|e| ModuleError::LoadError(unit_name.to_string(), e.to_string()))??;
+        Ok((path, source))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

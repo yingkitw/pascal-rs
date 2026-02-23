@@ -25,7 +25,7 @@ This document describes the pascal-rs dependency tree and notable transitive dep
 | `lsp` | tower-lsp, tokio, serde_json | Language Server Protocol |
 | `gui` | cocoa, objc | macOS native GUI |
 | `debug` | gimli | Debug information |
-| `profile` | pprof | Profiling support |
+| `profile` | pprof | CPU profiling; `pascal run --profile` writes flamegraph.svg |
 | `full` | lsp + mcp + gui | All optional features |
 
 ## Transitive Dependencies (Notable)

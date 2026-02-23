@@ -26,6 +26,10 @@ enum Commands {
         /// Directory to create the project in
         #[arg(short, long, default_value = ".")]
         dir: PathBuf,
+
+        /// Project template: default, library, console
+        #[arg(short, long, default_value = "default")]
+        template: String,
     },
 
     /// Build the current project (requires pascal.toml)
@@ -115,6 +119,10 @@ enum Commands {
         /// Number of threads for parallel compilation (0 = auto)
         #[arg(long, default_value = "0")]
         threads: usize,
+
+        /// Define symbol for conditional compilation (-DDEBUG, -DFOO=1)
+        #[arg(short = 'D', long = "define", value_name = "SYMBOL")]
+        defines: Vec<String>,
     },
 
     /// Show information about a compiled unit
@@ -135,6 +143,36 @@ enum Commands {
         /// Quiet mode (minimal output)
         #[arg(short, long)]
         quiet: bool,
+
+        /// Watch mode: re-run when source files change
+        #[arg(short, long)]
+        watch: bool,
+
+        /// CPU profile and write flamegraph (requires --features profile)
+        #[arg(long)]
+        profile: bool,
+
+        /// Profile output path (default: flamegraph.svg)
+        #[arg(long, default_value = "flamegraph.svg")]
+        profile_output: PathBuf,
+    },
+
+    /// Run with interactive debugger (breakpoints, watch expressions)
+    Debug {
+        /// Input Pascal file
+        input: PathBuf,
+
+        /// Break on procedure/function entry (e.g. -b MyProc)
+        #[arg(short, long)]
+        breakpoint: Vec<String>,
+
+        /// Watch variable (e.g. -w x)
+        #[arg(short, long)]
+        watch: Vec<String>,
+
+        /// Verbose output
+        #[arg(short, long)]
+        verbose: bool,
     },
 
     /// Format Pascal source files
@@ -186,6 +224,25 @@ enum Commands {
         input: PathBuf,
     },
 
+    /// Generate documentation from Pascal source
+    Doc {
+        /// Pascal source file(s) or directory
+        #[arg(default_value = ".")]
+        path: Vec<PathBuf>,
+
+        /// Output format: markdown, html
+        #[arg(short, long, default_value = "markdown")]
+        format: String,
+
+        /// Output directory (default: docs/)
+        #[arg(short, long, default_value = "docs")]
+        output: PathBuf,
+
+        /// Process directories recursively
+        #[arg(long, default_value = "true")]
+        recursive: bool,
+    },
+
     /// Clean compiled files
     Clean {
         /// Directory to clean
@@ -212,7 +269,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Init { name, dir } => BuildSystem::init(&dir, &name),
+        Commands::Init { name, dir, template } => BuildSystem::init_with_template(&dir, &name, &template),
 
         Commands::Build { verbose, quiet, optimization } => {
             let mut bs = open_project(verbose && !quiet)?;
@@ -250,6 +307,7 @@ fn main() -> Result<()> {
             quiet,
             parallel,
             threads,
+            defines,
         } => compile_file(
             input,
             output,
@@ -263,6 +321,7 @@ fn main() -> Result<()> {
             quiet,
             parallel,
             threads,
+            defines,
         ),
 
         Commands::Info { ppu_file } => show_ppu_info(ppu_file),
@@ -271,17 +330,41 @@ fn main() -> Result<()> {
             input,
             verbose,
             quiet,
+            watch,
+            profile,
+            profile_output,
         } => {
-            if let Some(file) = input {
-                run_file(file, verbose && !quiet)
+            if watch {
+                if let Some(file) = input {
+                    run_file_watch(file, verbose && !quiet)
+                } else {
+                    run_project_watch(verbose && !quiet)?;
+                    Ok(())
+                }
+            } else if let Some(file) = input {
+                run_file(file, verbose && !quiet, profile.then(|| profile_output))
             } else {
-                open_project(verbose && !quiet)?.run(quiet)
+                open_project(verbose && !quiet)?.run(quiet, profile.then(|| profile_output))
             }
         }
+
+        Commands::Debug {
+            input,
+            breakpoint,
+            watch,
+            verbose,
+        } => run_debug(input, breakpoint, watch, verbose),
 
         Commands::Fmt { path, check, .. } => fmt_files(path, check),
 
         Commands::Check { input } => check_file(input),
+
+        Commands::Doc {
+            path,
+            format,
+            output,
+            recursive,
+        } => doc_files(path, format, output, recursive),
 
         Commands::Clean { directory } => clean_directory(directory),
     }
@@ -300,6 +383,7 @@ fn compile_file(
     quiet: bool,
     parallel: bool,
     threads: usize,
+    defines: Vec<String>,
 ) -> Result<()> {
     if !input.exists() {
         eprintln!(
@@ -347,9 +431,17 @@ fn compile_file(
     }
 
     // Read source file
-    let source = std::fs::read_to_string(&input)?;
+    let raw_source = std::fs::read_to_string(&input)?;
     if verbose {
-        println!("{} Read {} bytes", "Info:".cyan().bold(), source.len());
+        println!("{} Read {} bytes", "Info:".cyan().bold(), raw_source.len());
+    }
+
+    // Conditional compilation
+    let defines_set: std::collections::HashSet<String> =
+        defines.into_iter().map(|s| s.split('=').next().unwrap_or(&s).to_uppercase()).collect();
+    let source = pascal::preprocess(&raw_source, &defines_set);
+    if verbose && !defines_set.is_empty() {
+        println!("{} Defines: {:?}", "Info:".cyan().bold(), defines_set);
     }
 
     // Parsing (lexer is created internally by parser)
@@ -444,7 +536,7 @@ fn compile_file(
     Ok(())
 }
 
-fn run_file(input: PathBuf, verbose: bool) -> Result<()> {
+fn run_file(input: PathBuf, verbose: bool, profile_output: Option<PathBuf>) -> Result<()> {
     if !input.exists() {
         eprintln!(
             "{} File not found: {}",
@@ -480,18 +572,142 @@ fn run_file(input: PathBuf, verbose: bool) -> Result<()> {
         );
     }
 
-    // Interpret
-    let mut interpreter = pascal::interpreter::Interpreter::new(verbose);
-    match interpreter.run_program(&program) {
-        Ok(()) => {
-            if verbose {
-                println!("\n{} Program finished", "Info:".cyan().bold());
-            }
+    run_program_impl(&program, verbose, profile_output)
+}
+
+fn run_file_watch(input: PathBuf, verbose: bool) -> Result<()> {
+    use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    if !input.exists() {
+        eprintln!("{} File not found: {}", "Error:".red().bold(), input.display());
+        std::process::exit(1);
+    }
+
+    let (tx, rx) = mpsc::channel();
+    let mut watcher = RecommendedWatcher::new(tx, Config::default().with_poll_interval(Duration::from_secs(1)))?;
+    let watch_path = input.canonicalize().unwrap_or_else(|_| input.clone());
+    watcher.watch(&watch_path, RecursiveMode::NonRecursive)?;
+
+    if !verbose {
+        println!("{} Watching {} (Ctrl+C to stop)", "Info:".cyan().bold(), input.display());
+    }
+
+    loop {
+        run_file(input.clone(), verbose, None)?;
+        if verbose {
+            println!("{} Waiting for changes...", "Info:".cyan().bold());
         }
+        match rx.recv() {
+            Ok(Ok(_)) => {
+                if verbose {
+                    println!("{} Change detected, re-running...", "Info:".cyan().bold());
+                }
+            }
+            Err(_) => return Ok(()),
+            _ => {}
+        }
+    }
+}
+
+fn run_project_watch(verbose: bool) -> Result<()> {
+    let bs = open_project(verbose)?;
+    let manifest = bs.manifest();
+    let main_path = manifest
+        .package
+        .main
+        .as_ref()
+        .map(|m| bs.project_root().join(&manifest.package.src).join(m))
+        .ok_or_else(|| anyhow::anyhow!("No main file in pascal.toml"))?;
+    run_file_watch(main_path, verbose)?;
+    Ok(())
+}
+
+fn run_debug(
+    input: PathBuf,
+    breakpoints: Vec<String>,
+    watch_vars: Vec<String>,
+    verbose: bool,
+) -> Result<()> {
+    if !input.exists() {
+        eprintln!("{} File not found: {}", "Error:".red().bold(), input.display());
+        std::process::exit(1);
+    }
+
+    let source = std::fs::read_to_string(&input)?;
+    let mut parser = pascal::parser::Parser::new(&source);
+    let program = match parser.parse_program() {
+        Ok(p) => p,
         Err(e) => {
-            eprintln!("\n{} {}", "Runtime error:".red().bold(), e);
+            eprintln!("{} {}", "Parse error:".red().bold(), e);
             std::process::exit(1);
         }
+    };
+
+    let mut session = pascal::debugger::DebugSession::new();
+    for b in &breakpoints {
+        session.add_breakpoint(b);
+    }
+    for w in &watch_vars {
+        session.add_watch(w);
+    }
+
+    if verbose {
+        println!(
+            "{} Debugging '{}' (breakpoints: {:?}, watch: {:?})",
+            "Info:".cyan().bold(),
+            input.display(),
+            breakpoints,
+            watch_vars
+        );
+    }
+
+    pascal::debugger::run_with_debugger(&program, &mut session, verbose)
+}
+
+fn run_program_impl(
+    program: &pascal::ast::Program,
+    verbose: bool,
+    profile_output: Option<PathBuf>,
+) -> Result<()> {
+    let run = || {
+        let mut interpreter = pascal::interpreter::Interpreter::new(verbose);
+        match interpreter.run_program(program) {
+            Ok(()) => {
+                if verbose {
+                    println!("\n{} Program finished", "Info:".cyan().bold());
+                }
+            }
+            Err(e) => {
+                eprintln!("\n{} {}", "Runtime error:".red().bold(), e);
+                std::process::exit(1);
+            }
+        }
+    };
+
+    if let Some(ref out) = profile_output {
+        #[cfg(feature = "profile")]
+        {
+            pascal::profile::run_profiled(out, run)?;
+            if verbose {
+                println!(
+                    "{} Profile written to {}",
+                    "Info:".cyan().bold(),
+                    out.display()
+                );
+            }
+        }
+        #[cfg(not(feature = "profile"))]
+        {
+            eprintln!(
+                "{} Use `cargo build --features profile` to enable profiling",
+                "Warning:".yellow().bold()
+            );
+            run();
+        }
+    } else {
+        run();
     }
 
     Ok(())
@@ -577,6 +793,83 @@ fn fmt_files(paths: Vec<PathBuf>, check_only: bool) -> Result<()> {
             formatted
         );
     }
+    Ok(())
+}
+
+fn doc_files(
+    paths: Vec<PathBuf>,
+    format_str: String,
+    output_dir: PathBuf,
+    recursive: bool,
+) -> Result<()> {
+    use std::fs;
+    use std::io::Write;
+
+    let format = format_str
+        .parse::<pascal::DocFormat>()
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
+
+    let ext = match format {
+        pascal::DocFormat::Markdown => "md",
+        pascal::DocFormat::Html => "html",
+    };
+
+    std::fs::create_dir_all(&output_dir)?;
+
+    let mut collected: Vec<PathBuf> = vec![];
+    for path in &paths {
+        if path.is_dir() {
+            fn collect_pas(dir: &std::path::Path, out: &mut Vec<PathBuf>, recursive: bool) {
+                if let Ok(entries) = fs::read_dir(dir) {
+                    for entry in entries.flatten() {
+                        let p = entry.path();
+                        if p.is_dir() && recursive {
+                            collect_pas(&p, out, recursive);
+                        } else if p.extension().and_then(|s| s.to_str()) == Some("pas") {
+                            out.push(p);
+                        }
+                    }
+                }
+            }
+            collect_pas(path, &mut collected, recursive);
+        } else if path.extension().and_then(|s| s.to_str()) == Some("pas") {
+            collected.push(path.clone());
+        }
+    }
+
+    let mut generated = 0;
+    for input in collected {
+        let source = match fs::read_to_string(&input) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("{} {}: {}", "Warning:".yellow().bold(), input.display(), e);
+                continue;
+            }
+        };
+
+        match pascal::generate_docs_from_source(&source, &input, format) {
+            Ok(docs) => {
+                let stem = input.file_stem().and_then(|s| s.to_str()).unwrap_or("doc");
+                let out_path = output_dir.join(format!("{}.{}", stem, ext));
+                if let Err(e) = fs::File::create(&out_path).and_then(|mut f| f.write_all(docs.as_bytes())) {
+                    eprintln!("{} Failed to write {}: {}", "Error:".red().bold(), out_path.display(), e);
+                } else {
+                    println!("  Generated: {} -> {}", input.display(), out_path.display());
+                    generated += 1;
+                }
+            }
+            Err(e) => {
+                eprintln!("{} {}: {}", "Warning:".yellow().bold(), input.display(), e);
+            }
+        }
+    }
+
+    println!(
+        "{} Generated documentation for {} file(s) in {}",
+        "Success:".green().bold(),
+        generated,
+        output_dir.display()
+    );
     Ok(())
 }
 

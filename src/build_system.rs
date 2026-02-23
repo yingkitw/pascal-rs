@@ -13,7 +13,7 @@ use anyhow::{anyhow, Context, Result};
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 
 // ---------------------------------------------------------------------------
@@ -28,6 +28,10 @@ pub struct Manifest {
     pub dependencies: BTreeMap<String, DependencySpec>,
     #[serde(default)]
     pub build: BuildConfig,
+    #[serde(default)]
+    pub profile: BTreeMap<String, ProfileOverrides>,
+    #[serde(default)]
+    pub features: BTreeMap<String, bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,6 +80,44 @@ pub struct BuildConfig {
     pub output: String,
     #[serde(default)]
     pub verbose: bool,
+    /// Active profile (dev, release, etc.). Used to merge [profile.X] overrides.
+    #[serde(skip)]
+    pub active_profile: Option<String>,
+}
+
+/// Environment-specific profile overrides in pascal.toml
+///
+/// Example:
+/// ```toml
+/// [profile.dev]
+/// optimization = 0
+/// verbose = true
+///
+/// [profile.release]
+/// optimization = 3
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ProfileOverrides {
+    #[serde(default)]
+    pub optimization: Option<u8>,
+    #[serde(default)]
+    pub output: Option<String>,
+    #[serde(default)]
+    pub verbose: Option<bool>,
+}
+
+impl ProfileOverrides {
+    pub fn merge_into(&self, config: &mut BuildConfig) {
+        if let Some(o) = self.optimization {
+            config.optimization = o;
+        }
+        if let Some(ref o) = self.output {
+            config.output = o.clone();
+        }
+        if let Some(v) = self.verbose {
+            config.verbose = v;
+        }
+    }
 }
 
 fn default_version() -> String {
@@ -274,7 +316,14 @@ impl BuildSystem {
     /// Create a BuildSystem from a project root containing pascal.toml
     pub fn open(project_root: &Path, verbose: bool) -> Result<Self> {
         let manifest_path = project_root.join("pascal.toml");
-        let manifest = Manifest::load(&manifest_path)?;
+        let mut manifest = Manifest::load(&manifest_path)?;
+        // Apply profile overrides from PASCAL_PROFILE env (e.g. dev, release)
+        if let Ok(profile_name) = std::env::var("PASCAL_PROFILE") {
+            if let Some(overrides) = manifest.profile.get(&profile_name) {
+                overrides.merge_into(&mut manifest.build);
+                manifest.build.active_profile = Some(profile_name);
+            }
+        }
         Ok(Self {
             project_root: project_root.to_path_buf(),
             manifest,
@@ -282,13 +331,18 @@ impl BuildSystem {
         })
     }
 
-    /// `pascal init [name]` — scaffold a new project
+    /// `pascal init [name]` — scaffold a new project (delegates to init_with_template)
     pub fn init(dir: &Path, name: &str) -> Result<()> {
+        Self::init_with_template(dir, name, "default")
+    }
+
+    /// `pascal init [name] --template X` — scaffold with template
+    pub fn init_with_template(dir: &Path, name: &str, template: &str) -> Result<()> {
         let project_dir = dir.join(name);
         std::fs::create_dir_all(&project_dir)?;
 
         // pascal.toml
-        let manifest = Manifest {
+        let mut manifest = Manifest {
             package: Package {
                 name: name.to_string(),
                 version: "0.1.0".to_string(),
@@ -299,10 +353,13 @@ impl BuildSystem {
                 main: Some(format!("{}.pas", name)),
             },
             dependencies: BTreeMap::new(),
+            profile: BTreeMap::new(),
+            features: BTreeMap::new(),
             build: BuildConfig {
                 optimization: 0,
                 output: "build".to_string(),
                 verbose: false,
+                active_profile: None,
             },
         };
         manifest.save(&project_dir.join("pascal.toml"))?;
@@ -311,13 +368,46 @@ impl BuildSystem {
         let src_dir = project_dir.join("src");
         std::fs::create_dir_all(&src_dir)?;
 
-        // src/<name>.pas
-        let main_source = format!(
-            "program {};\nbegin\n  writeln('Hello from {}!');\nend.\n",
-            capitalize(name),
-            name
-        );
-        std::fs::write(src_dir.join(format!("{}.pas", name)), main_source)?;
+        let (main_source, main_name, is_unit) = match template.to_lowercase().as_str() {
+            "library" | "lib" => (
+                format!(
+                    "unit {};\n\ninterface\n\nimplementation\n\nend.\n",
+                    capitalize(name)
+                ),
+                format!("{}.pas", name),
+                true,
+            ),
+            "console" => (
+                format!(
+                    r#"program {};
+var
+  x: integer;
+begin
+  x := 42;
+  writeln('Hello from {}! x = ', x);
+end."#,
+                    capitalize(name),
+                    name
+                ),
+                format!("{}.pas", name),
+                false,
+            ),
+            _ => (
+                format!(
+                    "program {};\nbegin\n  writeln('Hello from {}!');\nend.\n",
+                    capitalize(name),
+                    name
+                ),
+                format!("{}.pas", name),
+                false,
+            ),
+        };
+        std::fs::write(src_dir.join(&main_name), main_source)?;
+
+        if is_unit {
+            manifest.package.main = None;
+            manifest.save(&project_dir.join("pascal.toml"))?;
+        }
 
         // tests/
         std::fs::create_dir_all(project_dir.join("tests"))?;
@@ -479,7 +569,7 @@ impl BuildSystem {
     }
 
     /// `pascal run` (project mode) — build then run the main program
-    pub fn run(&self, quiet: bool) -> Result<()> {
+    pub fn run(&self, quiet: bool, profile_output: Option<std::path::PathBuf>) -> Result<()> {
         let src_dir = self.project_root.join(&self.manifest.package.src);
 
         // Determine main file
@@ -503,10 +593,29 @@ impl BuildSystem {
             .parse_program()
             .map_err(|e| anyhow!("Parse error: {}", e))?;
 
-        let mut interp = crate::interpreter::Interpreter::new(self.verbose && !quiet);
-        interp
-            .run_program(&program)
-            .map_err(|e| anyhow!("Runtime error: {}", e))?;
+        let run = || {
+            let mut interp = crate::interpreter::Interpreter::new(self.verbose && !quiet);
+            interp
+                .run_program(&program)
+                .map_err(|e| anyhow!("Runtime error: {}", e))
+        };
+
+        if let Some(ref out) = profile_output {
+            #[cfg(feature = "profile")]
+            {
+                crate::profile::run_profiled(out, run)??;
+            }
+            #[cfg(not(feature = "profile"))]
+            {
+                eprintln!(
+                    "{} Use `cargo build --features profile` to enable profiling",
+                    colored::Colorize::yellow("Warning:")
+                );
+                run()?;
+            }
+        } else {
+            run()?;
+        }
 
         Ok(())
     }
@@ -706,6 +815,8 @@ mod tests {
                 main: Some("myproject.pas".to_string()),
             },
             dependencies: BTreeMap::new(),
+            profile: BTreeMap::new(),
+            features: BTreeMap::new(),
             build: BuildConfig::default(),
         };
 
@@ -849,6 +960,32 @@ output = "dist"
     }
 
     #[test]
+    fn test_init_with_library_template() {
+        let dir = tempfile::tempdir().unwrap();
+        BuildSystem::init_with_template(dir.path(), "mylib", "library").unwrap();
+
+        let project = dir.path().join("mylib");
+        let src = fs::read_to_string(project.join("src/mylib.pas")).unwrap();
+        assert!(src.contains("unit Mylib"));
+        assert!(src.contains("interface"));
+        assert!(src.contains("implementation"));
+
+        let manifest = Manifest::load(&project.join("pascal.toml")).unwrap();
+        assert_eq!(manifest.package.main, None);
+    }
+
+    #[test]
+    fn test_init_with_console_template() {
+        let dir = tempfile::tempdir().unwrap();
+        BuildSystem::init_with_template(dir.path(), "app", "console").unwrap();
+
+        let src = fs::read_to_string(dir.path().join("app/src/app.pas")).unwrap();
+        assert!(src.contains("var"));
+        assert!(src.contains("x: integer"));
+        assert!(src.contains("writeln"));
+    }
+
+    #[test]
     fn test_build_simple_project() {
         let dir = tempfile::tempdir().unwrap();
         BuildSystem::init(dir.path(), "testproj").unwrap();
@@ -936,6 +1073,6 @@ output = "dist"
 
         let project = dir.path().join("runtest");
         let bs = BuildSystem::open(&project, false).unwrap();
-        bs.run(false).unwrap();
+        bs.run(false, None).unwrap();
     }
 }

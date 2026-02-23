@@ -1,5 +1,6 @@
 //! Symbol resolution across modules
 
+use crate::error_suggestions;
 use crate::{Module, ModuleError, ModuleResult};
 use std::collections::HashMap;
 
@@ -189,10 +190,26 @@ impl ModuleResolver {
             }
         }
 
-        Err(ModuleError::ModuleNotFound(format!(
+        let mut msg = format!(
             "Symbol '{}' not found in module '{}' or its dependencies",
             symbol_name, current_module
-        )))
+        );
+        if let Some(table) = self.symbol_tables.get(current_module) {
+            let candidates: Vec<String> = table
+                .types
+                .keys()
+                .chain(table.constants.keys())
+                .chain(table.variables.keys())
+                .chain(table.procedures.keys())
+                .chain(table.functions.keys())
+                .chain(table.classes.keys())
+                .cloned()
+                .collect();
+            if let Some(sugg) = error_suggestions::suggest_identifier(symbol_name, &candidates) {
+                msg.push_str(&format!("\n  {}", error_suggestions::did_you_mean(symbol_name, &sugg)));
+            }
+        }
+        Err(ModuleError::ModuleNotFound(msg))
     }
 
     /// Find a symbol in a symbol table

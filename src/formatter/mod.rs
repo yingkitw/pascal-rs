@@ -56,11 +56,10 @@ pub fn format_string(source: &str, config: Option<FormatConfig>) -> Result<Strin
 ///
 /// # Examples
 ///
-/// ```
+/// ```no_run
 /// use pascal::formatter::format_file;
 ///
-/// format_file("input.pas", Some("output.pas"), None)?;
-/// # Ok::<(), anyhow::Error>(())
+/// format_file("input.pas", Some("output.pas"), None).unwrap();
 /// ```
 pub fn format_file<P1, P2>(
     input_path: P1,

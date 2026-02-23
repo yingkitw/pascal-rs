@@ -57,6 +57,9 @@ pub enum Token {
     #[token("of")]
     Of,
 
+    #[token("when")]
+    When,
+
     #[token("with")]
     With,
 
