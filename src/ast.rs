@@ -101,6 +101,9 @@ pub enum Type {
         fields: HashMap<String, Box<Type>>,
         is_packed: bool,
     },
+    Enum {
+        values: Vec<String>,
+    },
     Set {
         base_type: Box<Type>,
     },
@@ -146,7 +149,7 @@ pub enum FieldVisibility {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Statement {
     Assignment {
-        target: String,
+        target: Expression,
         value: Expression,
     },
     If {
@@ -508,3 +511,61 @@ pub enum CallingConvention {
 
 pub type Expr = Expression;
 pub type Stmt = Statement;
+
+// Display implementations
+use std::fmt;
+
+impl fmt::Display for SimpleType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SimpleType::Integer => write!(f, "integer"),
+            SimpleType::Real => write!(f, "real"),
+            SimpleType::Boolean => write!(f, "boolean"),
+            SimpleType::Char => write!(f, "char"),
+            SimpleType::String => write!(f, "string"),
+        }
+    }
+}
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Type::Simple(simple) => write!(f, "{}", simple),
+            Type::Integer => write!(f, "integer"),
+            Type::Real => write!(f, "real"),
+            Type::Boolean => write!(f, "boolean"),
+            Type::Char => write!(f, "char"),
+            Type::String => write!(f, "string"),
+            Type::WideString => write!(f, "widestring"),
+            Type::Alias { name, target_type } => write!(f, "{} = {}", name, target_type),
+            Type::Array { index_type, element_type, range } => {
+                if let Some((start, end)) = range {
+                    write!(f, "array[{}..{}] of {}", start, end, element_type)
+                } else {
+                    write!(f, "array of {}", element_type)
+                }
+            }
+            Type::Record { fields, .. } => {
+                write!(f, "record {{ ")?;
+                for (i, (name, typ)) in fields.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, "; ")?;
+                    }
+                    write!(f, "{}: {}", name, typ)?;
+                }
+                write!(f, " }}")
+            }
+            Type::Enum { values } => write!(f, "({})", values.join(", ")),
+            Type::Set { base_type } => write!(f, "set of {}", base_type),
+            Type::File { element_type } => {
+                match element_type {
+                    Some(typ) => write!(f, "file of {}", typ),
+                    None => write!(f, "file"),
+                }
+            },
+            Type::Pointer(_) => write!(f, "pointer"),
+            Type::Generic { name, .. } => write!(f, "generic {}", name),
+            Type::GenericInstance { .. } => write!(f, "generic instance"),
+        }
+    }
+}

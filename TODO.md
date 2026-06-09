@@ -2,9 +2,9 @@
 
 ## Current Status
 
-**127 unit tests + 19 example integration tests + 82 other integration tests = 228 total tests passing.** Build clean.
+**147 unit tests + 20 interpreter integration tests + 10 pipeline integration tests + 10 compiler tests + 18 simple compiler tests + 13 simple interpreter tests + 10 type checker tests + 9 complex validation tests + 19 example tests + 5 test harness tests + 1 backward compatibility test = 262 core tests passing.** Build clean.
 
-Interpreter supports standard Pascal + full Object Pascal (classes, exceptions, inheritance, virtual dispatch, properties, arrays, records, string indexing, with, exit, uses, nested functions).
+Interpreter supports standard Pascal + full Object Pascal (classes, exceptions, inheritance, virtual dispatch, properties, arrays, records, enums, sets, string indexing, with, exit, uses, nested functions).
 
 Build system with `pascal.toml` manifest, dependency management, lock file, and topological build ordering.
 
@@ -179,10 +179,10 @@ Build system with `pascal.toml` manifest, dependency management, lock file, and 
 - [ ] Emacs package with tree-sitter grammar
 
 ### Language Features
-- [ ] Array element assignment (`arr[i] := val`) with bounds checking
-- [ ] Multi-dimensional arrays with dynamic allocation
-- [ ] Enum types in interpreter with scoped constants
-- [ ] Set operations in interpreter with efficient bit representations
+- [x] Array element assignment (`arr[i] := val`) with bounds checking
+- [x] Multi-dimensional arrays with dynamic allocation
+- [x] Enum types in interpreter with scoped constants
+- [x] Set operations in interpreter with efficient bit representations
 - [ ] Pointer/reference support with garbage collection options
 - [ ] Inline class method bodies in parser with lambda capture
 - [ ] Variant records and discriminated unions

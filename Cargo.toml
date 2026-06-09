@@ -1,6 +1,6 @@
 [package]
 name = "pascal"
-version = "0.1.4"
+version = "0.1.6"
 edition = "2024"
 authors = ["Ying Kit WONG"]
 license = "Apache-2.0"
@@ -39,6 +39,7 @@ num_cpus = "1.16"
 strsim = "0.11"
 pulldown-cmark = "0.9"
 notify = "6.1"
+rand = "0.8"
 
 # LSP support (optional)
 tower-lsp = { version = "0.20", optional = true }

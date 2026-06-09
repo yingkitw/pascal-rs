@@ -1,6 +1,6 @@
 //! Statement parsing for the Pascal parser
 
-use crate::ast::{Block, CaseBranch, ExceptClause, ForDirection, Stmt};
+use crate::ast::{Block, CaseBranch, ExceptClause, Expr, ForDirection, Stmt};
 use crate::parser::{ParseResult, Parser};
 use crate::tokens::Token;
 use crate::ParseError;
@@ -45,20 +45,41 @@ impl<'a> Parser<'a> {
 
     /// Parse statement starting with identifier (assignment or call)
     fn parse_identifier_statement(&mut self) -> ParseResult<Option<Stmt>> {
-        let mut name = if let Some(Token::Identifier(n)) = self.current_token.take() {
+        let name = if let Some(Token::Identifier(n)) = self.current_token.take() {
             self.advance();
             n
         } else {
             unreachable!()
         };
 
-        // Handle dot notation for record field access: p.x, p.x.y, etc.
-        while self.check(Token::Dot) {
-            self.advance();
-            if let Some(Token::Identifier(field)) = self.peek() {
-                let field = field.clone();
+        let mut target_expr = Expr::Variable(name);
+
+        // Handle dot notation and bracket indexing for lvalues
+        loop {
+            if self.check(Token::Dot) {
                 self.advance();
-                name = format!("{}.{}", name, field);
+                if let Some(Token::Identifier(field)) = self.peek() {
+                    let field = field.clone();
+                    self.advance();
+                    if let Expr::Variable(base_name) = &target_expr {
+                        target_expr = Expr::Variable(format!("{}.{}", base_name, field));
+                    } else {
+                        target_expr = Expr::Variable(format!("self.{}", field));
+                    }
+                } else {
+                    break;
+                }
+            } else if self.check(Token::LeftBracket) {
+                // Array/string indexing in assignment target: arr[i]
+                self.advance();
+                let index = self.parse_expression()?;
+                self.consume_or_skip(Token::RightBracket, &[Token::Semicolon, Token::End]);
+                if let Some(idx_expr) = index {
+                    target_expr = Expr::FunctionCall {
+                        name: "__index__".to_string(),
+                        arguments: vec![target_expr, idx_expr],
+                    };
+                }
             } else {
                 break;
             }
@@ -69,7 +90,7 @@ impl<'a> Parser<'a> {
             self.advance();
             if let Some(value) = self.parse_expression()? {
                 Ok(Some(Stmt::Assignment {
-                    target: name,
+                    target: target_expr,
                     value,
                 }))
             } else {
@@ -79,16 +100,24 @@ impl<'a> Parser<'a> {
             // Procedure call with arguments
             self.advance();
             let args = self.parse_argument_list()?;
-            Ok(Some(Stmt::ProcedureCall {
-                name,
-                arguments: args,
-            }))
+            if let Expr::Variable(call_name) = target_expr {
+                Ok(Some(Stmt::ProcedureCall {
+                    name: call_name,
+                    arguments: args,
+                }))
+            } else {
+                Err(ParseError::UnexpectedToken("expected procedure name".to_string()))
+            }
         } else {
             // Procedure call without arguments
-            Ok(Some(Stmt::ProcedureCall {
-                name,
-                arguments: vec![],
-            }))
+            if let Expr::Variable(call_name) = target_expr {
+                Ok(Some(Stmt::ProcedureCall {
+                    name: call_name,
+                    arguments: vec![],
+                }))
+            } else {
+                Err(ParseError::UnexpectedToken("expected procedure name".to_string()))
+            }
         }
     }
 

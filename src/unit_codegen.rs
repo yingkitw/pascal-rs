@@ -356,8 +356,16 @@ impl UnitCodeGenerator {
     fn generate_statement(&mut self, stmt: &Stmt) -> Result<()> {
         match stmt {
             Stmt::Assignment { target, value } => {
-                writeln!(&mut self.output, "    # Assignment to {}", target)?;
-                self.generate_assignment(target, value)?;
+                match target {
+                    Expr::Variable(name) => {
+                        writeln!(&mut self.output, "    # Assignment to {}", name)?;
+                        self.generate_assignment(name, value)?;
+                    },
+                    _ => {
+                        writeln!(&mut self.output, "    # Unsupported assignment target")?;
+                        return Err(anyhow::anyhow!("Unsupported assignment target in codegen"));
+                    }
+                }
             }
             Stmt::If {
                 condition,

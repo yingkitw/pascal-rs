@@ -312,7 +312,7 @@ impl Formatter {
     fn write_statement(&mut self, stmt: &Statement) -> Result<(), anyhow::Error> {
         match stmt {
             Statement::Assignment { target, value } => {
-                self.write_identifier(target)?;
+                self.write_expression(target)?;
                 self.write_space()?;
                 self.output.push_str(":=");
                 self.write_space()?;

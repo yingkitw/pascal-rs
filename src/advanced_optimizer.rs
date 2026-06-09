@@ -102,7 +102,7 @@ impl FunctionInliner {
         for (i, param) in func.parameters.iter().enumerate() {
             if i < args.len() {
                 stmts.push(Stmt::Assignment {
-                    target: param.name.clone(),
+                    target: Expr::Variable(param.name.clone()),
                     value: args[i].clone(),
                 });
             }

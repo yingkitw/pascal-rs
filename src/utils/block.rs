@@ -37,7 +37,7 @@ mod tests {
     #[test]
     fn test_block_with_statement() {
         let stmt = Stmt::Assignment {
-            target: "x".to_string(),
+            target: Expr::Variable("x".to_string()),
             value: Expr::Literal(crate::ast::Literal::Integer(42)),
         };
         let block = block_with_statement(stmt.clone());

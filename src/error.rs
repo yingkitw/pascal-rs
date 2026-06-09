@@ -1,9 +1,12 @@
 //! Simple error types for the Pascal compiler
+//! 
+//! This module provides backward compatibility with the enhanced error system.
 
 use std::path::PathBuf;
 use thiserror::Error;
 
 use crate::lexer::LexerError;
+use crate::enhanced_error::{SourceLocation, ErrorReporter};
 
 /// Compilation result
 #[derive(Debug)]
@@ -29,7 +32,7 @@ impl Default for CompileOptions {
 }
 
 /// Compilation errors
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum CompilerError {
     #[error("IO error: {0}")]
     IoError(String),
@@ -46,6 +49,7 @@ pub enum CompilerError {
 
 impl From<LexerError> for CompilerError {
     fn from(err: LexerError) -> Self {
+        // Convert to legacy error format
         CompilerError::ParseError(err.to_string())
     }
 }

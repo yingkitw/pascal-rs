@@ -1302,16 +1302,53 @@ impl<'a> Parser<'a> {
             Some(Token::Array) => {
                 self.advance();
                 self.consume_or_skip(Token::LeftBracket, &[Token::Of, Token::Semicolon]);
-                // Parse index type (simplified)
-                let index_type = Box::new(Type::Simple(SimpleType::Integer));
+                // Parse array bounds: [lower..upper] or just index type
+                let mut range = None;
+                let index_type;
+                if let Some(Token::IntegerLiteral(start)) = self.peek() {
+                    let start_val = *start;
+                    self.advance();
+                    if self.check(Token::Range) {
+                        self.advance();
+                        if let Some(Token::IntegerLiteral(end)) = self.peek() {
+                            let end_val = *end;
+                            self.advance();
+                            range = Some((start_val, end_val));
+                            index_type = Box::new(Type::Simple(SimpleType::Integer));
+                        } else {
+                            index_type = Box::new(Type::Simple(SimpleType::Integer));
+                        }
+                    } else {
+                        index_type = Box::new(Type::Simple(SimpleType::Integer));
+                    }
+                } else {
+                    index_type = Box::new(Type::Simple(SimpleType::Integer));
+                }
                 self.consume_or_skip(Token::RightBracket, &[Token::Of, Token::Semicolon]);
                 self.consume_or_skip(Token::Of, &[Token::Semicolon]);
                 let element_type = Box::new(self.parse_type()?);
                 Type::Array {
                     index_type,
                     element_type,
-                    range: None,
+                    range,
                 }
+            }
+            Some(Token::LeftParen) => {
+                self.advance();
+                let mut values = vec![];
+                loop {
+                    if let Some(Token::Identifier(name)) = self.peek() {
+                        values.push(name.clone());
+                        self.advance();
+                    }
+                    if self.check(Token::Comma) {
+                        self.advance();
+                    } else {
+                        break;
+                    }
+                }
+                self.consume_or_skip(Token::RightParen, &[Token::Semicolon]);
+                Type::Enum { values }
             }
             Some(Token::Record) => {
                 self.advance();

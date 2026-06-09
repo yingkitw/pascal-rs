@@ -67,7 +67,7 @@ pub fn char_lit(c: char) -> Expr {
 /// Create an assignment statement
 pub fn assign(target: &str, value: Expr) -> Stmt {
     Stmt::Assignment {
-        target: target.to_string(),
+        target: Expr::Variable(target.to_string()),
         value,
     }
 }

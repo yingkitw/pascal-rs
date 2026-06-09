@@ -175,6 +175,28 @@ impl<'a> Parser<'a> {
                 );
                 expr
             }
+            Some(Token::LeftBracket) => {
+                // Set literal: [a, b, c]
+                self.advance();
+                let mut elements = vec![];
+                if !self.check(Token::RightBracket) {
+                    loop {
+                        if let Some(elem) = self.parse_expression()? {
+                            elements.push(elem);
+                        }
+                        match self.peek() {
+                            Some(Token::Comma) => {
+                                self.advance();
+                                continue;
+                            }
+                            Some(Token::RightBracket) => break,
+                            _ => break,
+                        }
+                    }
+                }
+                self.consume_or_skip(Token::RightBracket, &[Token::Semicolon, Token::End]);
+                Some(Expr::Set { elements })
+            }
             _ => None,
         })
     }

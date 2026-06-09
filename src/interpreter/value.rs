@@ -52,6 +52,13 @@ pub enum Value {
     Record {
         fields: HashMap<String, Value>,
     },
+    Enum {
+        type_name: String,
+        ordinal: i64,
+    },
+    Set {
+        elements: std::collections::HashSet<i64>,
+    },
 }
 
 impl std::fmt::Display for Value {
@@ -75,6 +82,14 @@ impl std::fmt::Display for Value {
                     .collect();
                 write!(f, "record({})", items.join("; "))
             }
+            Value::Enum { type_name, ordinal } => {
+                write!(f, "{}({})", type_name, ordinal)
+            }
+            Value::Set { elements } => {
+                let mut items: Vec<String> = elements.iter().map(|n| n.to_string()).collect();
+                items.sort();
+                write!(f, "[{}]", items.join(", "))
+            }
         }
     }
 }
@@ -85,6 +100,7 @@ impl Value {
             Value::Integer(n) => Ok(*n),
             Value::Real(r) => Ok(*r as i64),
             Value::Boolean(b) => Ok(if *b { 1 } else { 0 }),
+            Value::Enum { ordinal, .. } => Ok(*ordinal),
             Value::Char(c) => Ok(*c as i64),
             _ => Err(anyhow!("Cannot convert {:?} to integer", self)),
         }
