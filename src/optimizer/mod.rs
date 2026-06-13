@@ -2,7 +2,18 @@
 //!
 //! Provides constant folding, dead code elimination, and peephole optimization
 
-use crate::ast::{Block, Expr, Literal, Stmt};
+pub mod advanced;
+pub mod modular_pipeline;
+pub mod passes;
+
+pub use advanced::AdvancedOptimizer;
+pub use modular_pipeline::{
+    OptimizationLevel, OptimizationPipeline, OptimizationResult, PipelineConfig,
+    TargetArchitecture,
+};
+
+use crate::ast::{Block, Expr, Literal, Program, Stmt};
+use crate::enhanced_error::CompilerError;
 use std::collections::HashSet;
 
 /// Optimizer for expressions and statements
@@ -406,6 +417,29 @@ impl Default for Optimizer {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Run the optimization pipeline on a program AST.
+pub fn optimize_program(program: &mut Program, level: u8) -> Result<(), CompilerError> {
+    if level == 0 {
+        return Ok(());
+    }
+
+    let config = PipelineConfig::new(
+        OptimizationLevel::from_u8(level),
+        TargetArchitecture::Native,
+    );
+    let mut pipeline = OptimizationPipeline::new(config);
+    pipeline.register_standard_passes();
+
+    let result = pipeline.optimize(program)?;
+    if !result.success {
+        return Err(CompilerError::OptimizerError {
+            location: None,
+            message: result.warnings.join("; "),
+        });
+    }
+    Ok(())
 }
 
 #[cfg(test)]

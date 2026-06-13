@@ -552,7 +552,7 @@ fn compile_file(
 
     // Parsing (lexer is created internally by parser)
     let mut parser = pascal::parser::Parser::new(&source);
-    let program = match parser.parse_program() {
+    let mut program = match parser.parse_program() {
         Ok(prog) => {
             if verbose {
                 println!("{} Parsed program '{}'", "Info:".cyan().bold(), prog.name);
@@ -574,13 +574,18 @@ fn compile_file(
         }
     };
 
-    // Optimization
-    if optimization > 0 && verbose {
-        println!(
-            "{} Optimization level {}",
-            "Info:".cyan().bold(),
-            optimization
-        );
+    if optimization > 0 {
+        if verbose {
+            println!(
+                "{} Optimization level {}",
+                "Info:".cyan().bold(),
+                optimization
+            );
+        }
+        if let Err(e) = pascal::optimizer::optimize_program(&mut program, optimization) {
+            eprintln!("{} {}", "Optimization error:".red().bold(), e);
+            std::process::exit(1);
+        }
     }
 
     // Code generation (assembly)

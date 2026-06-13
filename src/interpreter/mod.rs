@@ -34,6 +34,8 @@ pub struct Interpreter {
     scope_manager: ScopeManager,
     functions: FunctionRegistry,
     classes: HashMap<String, ClassDecl>,
+    interface_registry: crate::interfaces::InterfaceRegistry,
+    string_pool: crate::memory_pool::StringPool,
     builtins: BuiltinRegistry,
     ffi: crate::ffi::FfiRegistry,
     pub debug_breakpoint_check: Option<DebugBreakpointCheck>,
@@ -48,6 +50,8 @@ impl Interpreter {
             scope_manager: ScopeManager::new(verbose),
             functions: FunctionRegistry::new(),
             classes: HashMap::new(),
+            interface_registry: crate::interfaces::InterfaceRegistry::new(),
+            string_pool: crate::memory_pool::StringPool::new(),
             builtins: create_default_registry(),
             ffi: crate::ffi::create_default_ffi_registry(),
             debug_breakpoint_check: None,
@@ -179,23 +183,69 @@ impl Interpreter {
     /// Register classes in a block
     pub fn register_block_classes(&mut self, block: &Block) -> Result<()> {
         for class_decl in &block.classes {
-            self.register_class(class_decl)?;
+            if self.classes.contains_key(&class_decl.name) {
+                return Err(anyhow::anyhow!(
+                    "Class '{}' already defined",
+                    class_decl.name
+                ));
+            }
+            if self.runtime.is_verbose() {
+                eprintln!("[interpreter] Registering class: {}", class_decl.name);
+            }
+            self.classes
+                .insert(class_decl.name.clone(), class_decl.clone());
+        }
+
+        for class_decl in &block.classes {
+            for iface_name in &class_decl.interfaces {
+                if self.interface_registry.get(iface_name).is_some()
+                    && !self
+                        .interface_registry
+                        .class_implements(class_decl, iface_name, &self.classes)
+                {
+                    return Err(anyhow::anyhow!(
+                        "Class '{}' does not implement interface '{}'",
+                        class_decl.name,
+                        iface_name
+                    ));
+                }
+            }
         }
         Ok(())
     }
 
-    /// Register a class
+    /// Register a single class (validates interfaces when registry knows them)
     pub fn register_class(&mut self, class_decl: &ClassDecl) -> Result<()> {
         if self.classes.contains_key(&class_decl.name) {
             return Err(anyhow::anyhow!("Class '{}' already defined", class_decl.name));
         }
-        
+
         if self.runtime.is_verbose() {
             eprintln!("[interpreter] Registering class: {}", class_decl.name);
         }
-        
-        self.classes.insert(class_decl.name.clone(), class_decl.clone());
+
+        self.classes
+            .insert(class_decl.name.clone(), class_decl.clone());
+
+        for iface_name in &class_decl.interfaces {
+            if self.interface_registry.get(iface_name).is_some()
+                && !self
+                    .interface_registry
+                    .class_implements(class_decl, iface_name, &self.classes)
+            {
+                return Err(anyhow::anyhow!(
+                    "Class '{}' does not implement interface '{}'",
+                    class_decl.name,
+                    iface_name
+                ));
+            }
+        }
         Ok(())
+    }
+
+    /// Register an interface declaration
+    pub fn register_interface(&mut self, iface: crate::ast::InterfaceDecl) {
+        self.interface_registry.register(iface);
     }
 
     /// Register functions and procedures in a block
@@ -568,11 +618,11 @@ impl Interpreter {
     }
 
     /// Evaluate a literal value
-    pub fn eval_literal(&self, literal: &Literal) -> Result<Value> {
+    pub fn eval_literal(&mut self, literal: &Literal) -> Result<Value> {
         match literal {
             Literal::Integer(i) => Ok(Value::Integer(*i)),
             Literal::Real(f) => Ok(Value::Real(*f)),
-            Literal::String(s) => Ok(Value::String(s.clone())),
+            Literal::String(s) => Ok(Value::String(self.string_pool.intern(s))),
             Literal::Boolean(b) => Ok(Value::Boolean(*b)),
             Literal::Char(c) => Ok(Value::Char(*c)),
             Literal::Nil => Ok(Value::Nil),

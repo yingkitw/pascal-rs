@@ -1,6 +1,5 @@
 //! Pascal Compiler - A production-ready optimizing Pascal compiler
 
-pub mod advanced_optimizer;
 pub mod advanced_types;
 pub mod ast;
 pub mod build_system;

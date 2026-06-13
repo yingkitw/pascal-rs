@@ -522,7 +522,22 @@ end."#,
 
             let mut parser = crate::parser::Parser::new(&source);
             match parser.parse_program() {
-                Ok(program) => {
+                Ok(mut program) => {
+                    let opt_level = self.manifest.build.optimization;
+                    if opt_level > 0 {
+                        if let Err(e) =
+                            crate::optimizer::optimize_program(&mut program, opt_level)
+                        {
+                            if !quiet {
+                                println!(" {}", "FAILED".red());
+                            }
+                            eprintln!("    Optimization error: {}", e);
+                            errors += 1;
+                            compiled += 1;
+                            continue;
+                        }
+                    }
+
                     // Run through interpreter to validate
                     let mut interp = crate::interpreter::Interpreter::new(false);
                     match interp.run_program(&program) {

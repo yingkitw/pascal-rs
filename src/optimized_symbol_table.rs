@@ -388,6 +388,21 @@ impl OptimizedSymbolTable {
         Ok(offset)
     }
 
+    /// Add a constant symbol
+    pub fn add_const(&mut self, name: String, typ: Type, value: ConstValue) -> Result<()> {
+        let flags = SymbolFlags::new(false, false, true);
+        let symbol = Symbol {
+            name: name.clone(),
+            typ,
+            offset: 0,
+            flags,
+            const_value: Some(value),
+            function_signature: None,
+        };
+        self.scopes[self.current_scope].add_symbol(name, symbol)?;
+        Ok(())
+    }
+
     /// Add a function symbol with signature
     pub fn add_function(
         &mut self,
@@ -520,6 +535,21 @@ impl OptimizedSymbolTable {
             },
             _ => 8, // Default pointer size
         }
+    }
+
+    /// Get current stack offset
+    pub fn current_offset(&self) -> i32 {
+        self.next_offset
+    }
+
+    /// Reset offset for new function
+    pub fn reset_offset(&mut self) {
+        self.next_offset = 8;
+    }
+
+    /// Insert a symbol with a precomputed stack offset
+    pub fn insert_symbol(&mut self, symbol: Symbol) -> Result<()> {
+        self.scopes[self.current_scope].add_symbol(symbol.name.clone(), symbol)
     }
 
     /// Get cache statistics

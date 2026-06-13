@@ -7,6 +7,8 @@
 //! - Module linking
 
 use crate::ast::*;
+use crate::optimized_symbol_table::{Symbol, SymbolFlags};
+use crate::symbol_table::SymbolTable;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -19,8 +21,8 @@ pub struct UnitCodeGenerator {
     /// Label counter for unique labels
     label_counter: u32,
 
-    /// Symbol table for variables
-    variables: HashMap<String, VariableInfo>,
+    /// Symbol table for variables and parameters
+    symbol_table: SymbolTable,
 
     /// Exported symbols from interface
     exports: Vec<String>,
@@ -41,21 +43,13 @@ pub struct UnitCodeGenerator {
     param_offset: i32,
 }
 
-#[derive(Debug, Clone)]
-struct VariableInfo {
-    offset: i32,
-    typ: Type,
-    is_exported: bool,
-    is_param: bool,
-}
-
 impl UnitCodeGenerator {
     /// Create a new unit code generator
     pub fn new() -> Self {
         Self {
             output: String::new(),
             label_counter: 0,
-            variables: HashMap::new(),
+            symbol_table: SymbolTable::new(),
             exports: Vec::new(),
             imports: HashMap::new(),
             current_unit: None,
@@ -67,7 +61,7 @@ impl UnitCodeGenerator {
 
     /// Reset local variable state for new function
     fn reset_local_state(&mut self) {
-        self.variables.clear();
+        self.symbol_table.clear();
         self.stack_size = 0;
         self.next_stack_offset = 0;
         self.param_offset = 16;
@@ -75,39 +69,29 @@ impl UnitCodeGenerator {
 
     /// Allocate space for a local variable on the stack
     fn allocate_local(&mut self, name: String, typ: Type) -> i32 {
-        let size = self.get_type_size(&typ);
-        self.next_stack_offset += size;
+        let offset = self
+            .symbol_table
+            .add_symbol(name, typ, false, false)
+            .unwrap_or(self.next_stack_offset);
+        self.next_stack_offset = self.symbol_table.current_offset();
         self.stack_size = self.stack_size.max(self.next_stack_offset);
-
-        let offset = self.next_stack_offset;
-        self.variables.insert(
-            name,
-            VariableInfo {
-                offset,
-                typ,
-                is_exported: false,
-                is_param: false,
-            },
-        );
-
         offset
     }
 
     /// Allocate space for a parameter (at fixed stack offset)
     fn allocate_param(&mut self, name: String, typ: Type) -> i32 {
         let offset = self.param_offset;
-        self.param_offset += 8; // Parameters are 8-byte aligned
+        self.param_offset += 8;
 
-        self.variables.insert(
-            name,
-            VariableInfo {
-                offset,
-                typ,
-                is_exported: false,
-                is_param: true,
-            },
-        );
-
+        let symbol = Symbol {
+            name: name.clone(),
+            typ,
+            offset,
+            flags: SymbolFlags::new(true, false, false),
+            const_value: None,
+            function_signature: None,
+        };
+        let _ = self.symbol_table.insert_symbol(symbol);
         offset
     }
 
@@ -419,9 +403,9 @@ impl UnitCodeGenerator {
     fn generate_assignment(&mut self, target: &str, value: &Expr) -> Result<()> {
         // Check if target is a float variable
         let is_float_target = self
-            .variables
-            .get(target)
-            .map(|info| matches!(info.typ, Type::Simple(SimpleType::Real)))
+            .symbol_table
+            .lookup(target)
+            .map(|info| matches!(info.typ, Type::Simple(SimpleType::Real) | Type::Real))
             .unwrap_or(false);
 
         // Generate value expression
@@ -615,9 +599,9 @@ impl UnitCodeGenerator {
 
                 // Check if variable is a float
                 let is_float = self
-                    .variables
-                    .get(name)
-                    .map(|info| matches!(info.typ, Type::Simple(SimpleType::Real)))
+                    .symbol_table
+                    .lookup(name)
+                    .map(|info| matches!(info.typ, Type::Simple(SimpleType::Real) | Type::Real))
                     .unwrap_or(false);
 
                 if is_float {
@@ -764,17 +748,14 @@ impl UnitCodeGenerator {
     }
 
     /// Check if an expression produces a float value
-    fn is_float_expression(&self, expr: &Expr) -> bool {
+    fn is_float_expression(&mut self, expr: &Expr) -> bool {
         match expr {
             Expr::Literal(Literal::Real(_)) => true,
-            Expr::Variable(name) => {
-                if let Some(info) = self.variables.get(name) {
-                    matches!(info.typ, Type::Simple(SimpleType::Real))
-                        || matches!(info.typ, Type::Real)
-                } else {
-                    false
-                }
-            }
+            Expr::Variable(name) => self
+                .symbol_table
+                .lookup(name)
+                .map(|info| matches!(info.typ, Type::Simple(SimpleType::Real) | Type::Real))
+                .unwrap_or(false),
             _ => false,
         }
     }
@@ -934,17 +915,16 @@ impl UnitCodeGenerator {
     }
 
     /// Check if an expression produces a string value
-    fn is_string_expression(&self, expr: &Expr) -> bool {
+    fn is_string_expression(&mut self, expr: &Expr) -> bool {
         match expr {
             Expr::Literal(Literal::String(_)) => true,
-            Expr::Variable(name) => {
-                if let Some(info) = self.variables.get(name) {
-                    matches!(info.typ, Type::Simple(SimpleType::String))
-                        || matches!(info.typ, Type::String)
-                } else {
-                    false
-                }
-            }
+            Expr::Variable(name) => self
+                .symbol_table
+                .lookup(name)
+                .map(|info| {
+                    matches!(info.typ, Type::Simple(SimpleType::String) | Type::String)
+                })
+                .unwrap_or(false),
             _ => false,
         }
     }
@@ -1049,10 +1029,11 @@ impl UnitCodeGenerator {
     }
 
     /// Get variable offset (simplified - uses fixed offsets)
-    fn get_variable_offset(&self, name: &str) -> i32 {
-        // Simple hash-based offset for now
-        let hash = name.bytes().fold(0u32, |acc, b| acc.wrapping_add(b as u32));
-        8 + ((hash % 100) * 8) as i32
+    fn get_variable_offset(&mut self, name: &str) -> i32 {
+        self.symbol_table
+            .lookup(name)
+            .map(|symbol| symbol.offset)
+            .unwrap_or(8)
     }
 
     /// Generate a new unique label

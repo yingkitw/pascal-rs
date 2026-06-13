@@ -8,17 +8,17 @@ use anyhow::{anyhow, Result};
 
 /// Type checker
 pub struct TypeChecker<'a> {
-    symbol_table: &'a LocalSymbolTable,
+    symbol_table: &'a mut LocalSymbolTable,
 }
 
 impl<'a> TypeChecker<'a> {
     /// Create a new type checker
-    pub fn new(symbol_table: &'a LocalSymbolTable) -> Self {
+    pub fn new(symbol_table: &'a mut LocalSymbolTable) -> Self {
         Self { symbol_table }
     }
 
     /// Check expression type
-    pub fn check_expr(&self, expr: &Expr) -> Result<Type> {
+    pub fn check_expr(&mut self, expr: &Expr) -> Result<Type> {
         match expr {
             Expr::Literal(lit) => Ok(self.literal_type(lit)),
 
@@ -199,8 +199,8 @@ mod tests {
 
     #[test]
     fn test_literal_types() {
-        let table = LocalSymbolTable::new();
-        let checker = TypeChecker::new(&table);
+        let mut table = LocalSymbolTable::new();
+        let mut checker = TypeChecker::new(&mut table);
 
         assert_eq!(checker.literal_type(&Literal::Integer(42)), Type::Integer);
         assert_eq!(checker.literal_type(&Literal::Boolean(true)), Type::Boolean);
@@ -209,8 +209,8 @@ mod tests {
 
     #[test]
     fn test_binary_op_types() {
-        let table = LocalSymbolTable::new();
-        let checker = TypeChecker::new(&table);
+        let mut table = LocalSymbolTable::new();
+        let checker = TypeChecker::new(&mut table);
 
         // Integer + Integer = Integer
         let result = checker.check_binary_op("+", &Type::Integer, &Type::Integer);

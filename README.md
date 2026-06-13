@@ -570,7 +570,7 @@ Total                       228
 ## License
 
 Apache-2.0
-
 ---
 
 **Made with Rust** — *228 tests passing | Standard Pascal + Object Pascal subset | Compiler + Interpreter + Package Manager*
+
