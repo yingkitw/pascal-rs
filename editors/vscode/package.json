@@ -1,0 +1,28 @@
+{
+  "name": "pascal-syntax",
+  "displayName": "Pascal (pascal-rs)",
+  "description": "Syntax highlighting for Pascal using pascal-rs TextMate grammar",
+  "version": "0.1.0",
+  "publisher": "pascal-rs",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "pascal",
+        "aliases": ["Pascal", "pascal"],
+        "extensions": [".pas", ".pp", ".dpr", ".inc"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "pascal",
+        "scopeName": "source.pascal",
+        "path": "../syntaxes/pascal.tmGrammar.json"
+      }
+    ]
+  }
+}

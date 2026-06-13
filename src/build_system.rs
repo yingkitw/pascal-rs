@@ -461,11 +461,16 @@ end."#,
             );
         }
 
-        // Resolve local path dependencies
-        self.resolve_dependencies()?;
+        // Resolve dependencies (path, git, registry cache)
+        let dep_paths = self.resolve_dependencies()?;
 
-        // Discover and sort units
-        let units = discover_units(&src_dir)?;
+        // Discover and sort units (project + dependencies)
+        let mut units = discover_units(&src_dir)?;
+        for dep_path in &dep_paths {
+            if let Ok(dep_units) = discover_units(dep_path) {
+                units.extend(dep_units);
+            }
+        }
         if units.is_empty() {
             if !quiet {
                 println!(
@@ -478,6 +483,8 @@ end."#,
         }
 
         let order = topo_sort(&units)?;
+
+        let mut inc_cache = crate::incremental::IncrementalCache::load(&self.project_root);
 
         if self.verbose {
             println!("  {} Build order:", "Info:".cyan().bold());
@@ -494,6 +501,14 @@ end."#,
         for &idx in &order {
             let unit = &units[idx];
             let source = std::fs::read_to_string(&unit.path)?;
+
+            if !inc_cache.needs_recompile(&unit.name, &source) {
+                if !quiet {
+                    println!("  {} [{}/{}] {}... {}", "Compiling".green(), compiled + 1, total, unit.name, "cached".cyan());
+                }
+                compiled += 1;
+                continue;
+            }
 
             if !quiet {
                 print!(
@@ -515,6 +530,7 @@ end."#,
                             if !quiet {
                                 println!(" {}", "ok".green());
                             }
+                            inc_cache.mark_compiled(&unit.name, &source);
                             compiled += 1;
                         }
                         Err(e) => {
@@ -541,8 +557,9 @@ end."#,
             }
         }
 
-        // Update lock file
+        // Update lock file and incremental cache
         self.update_lock_file()?;
+        let _ = inc_cache.save(&self.project_root);
 
         if !quiet {
             println!();
@@ -672,51 +689,17 @@ end."#,
         Ok(())
     }
 
-    /// Resolve path-based dependencies: copy/link their units into the build
-    fn resolve_dependencies(&self) -> Result<()> {
-        for (name, spec) in &self.manifest.dependencies {
-            match spec {
-                DependencySpec::Version(_ver) => {
-                    if self.verbose {
-                        println!(
-                            "  {} Dependency '{}' (registry — not yet supported)",
-                            "Info:".cyan().bold(),
-                            name
-                        );
-                    }
-                }
-                DependencySpec::Detailed(detail) => {
-                    if let Some(ref dep_path) = detail.path {
-                        let abs_path = self.project_root.join(dep_path);
-                        if !abs_path.exists() {
-                            return Err(anyhow!(
-                                "Dependency '{}' path not found: {}",
-                                name,
-                                abs_path.display()
-                            ));
-                        }
-                        if self.verbose {
-                            println!(
-                                "  {} Dependency '{}' from {}",
-                                "Info:".cyan().bold(),
-                                name,
-                                abs_path.display()
-                            );
-                        }
-                    }
-                    if let Some(ref _git_url) = detail.git {
-                        if self.verbose {
-                            println!(
-                                "  {} Dependency '{}' (git — fetch not yet implemented)",
-                                "Info:".cyan().bold(),
-                                name
-                            );
-                        }
-                    }
-                }
-            }
-        }
-        Ok(())
+    /// Resolve dependencies and return search paths
+    fn resolve_dependencies(&self) -> Result<Vec<PathBuf>> {
+        let resolver = crate::deps::DependencyResolver::new(&self.project_root, self.verbose);
+        let resolved = resolver.resolve_all(&self.manifest)?;
+        Ok(crate::deps::DependencyResolver::search_paths(&resolved))
+    }
+
+    /// Print dependency graph
+    pub fn dependency_tree(&self) -> String {
+        let graph = crate::deps::DependencyResolver::dependency_graph(&self.manifest);
+        crate::deps::DependencyResolver::format_tree(&graph, "")
     }
 
     /// Update pascal.lock with checksums of current source files

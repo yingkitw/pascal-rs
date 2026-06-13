@@ -35,6 +35,7 @@ pub struct Interpreter {
     functions: FunctionRegistry,
     classes: HashMap<String, ClassDecl>,
     builtins: BuiltinRegistry,
+    ffi: crate::ffi::FfiRegistry,
     pub debug_breakpoint_check: Option<DebugBreakpointCheck>,
     pub debug_breakpoint_handler: Option<DebugBreakpointHandler>,
 }
@@ -48,6 +49,7 @@ impl Interpreter {
             functions: FunctionRegistry::new(),
             classes: HashMap::new(),
             builtins: create_default_registry(),
+            ffi: crate::ffi::create_default_ffi_registry(),
             debug_breakpoint_check: None,
             debug_breakpoint_handler: None,
         }
@@ -61,6 +63,16 @@ impl Interpreter {
     /// Get a variable value for testing purposes
     pub fn get_variable_value(&self, name: &str) -> Option<Value> {
         self.runtime.get_variable_value(name)
+    }
+
+    /// Number of active scopes (for leak analysis)
+    pub fn scope_count(&self) -> usize {
+        self.runtime.scope_count()
+    }
+
+    /// All variables across all scopes
+    pub fn all_scope_variables(&self) -> Vec<(String, Value)> {
+        self.runtime.all_scope_variables()
     }
 
     /// Load uses clause units (simplified implementation)
@@ -574,6 +586,10 @@ impl Interpreter {
         // Check built-in functions first
         if let Some((_, _, func)) = self.builtins.get_function(name) {
             return func(args);
+        }
+
+        if self.ffi.has(name) {
+            return self.ffi.call(name, args);
         }
         
         // Check user-defined functions

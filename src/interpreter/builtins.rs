@@ -186,6 +186,20 @@ impl Builtins {
             0,
             Box::new(|args| Self::randomize(args)),
         );
+
+        // Reflection
+        registry.register(
+            "TypeName".to_string(),
+            1,
+            Box::new(|args| {
+                if args.is_empty() {
+                    return Err(anyhow::anyhow!("TypeName expects one argument"));
+                }
+                Ok(Value::String(
+                    crate::reflection::type_name(&args[0]).to_string(),
+                ))
+            }),
+        );
     }
 
     // I/O function implementations

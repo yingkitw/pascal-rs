@@ -123,6 +123,10 @@ enum Commands {
         /// Define symbol for conditional compilation (-DDEBUG, -DFOO=1)
         #[arg(short = 'D', long = "define", value_name = "SYMBOL")]
         defines: Vec<String>,
+
+        /// Compilation target: native or wasm
+        #[arg(long, default_value = "native")]
+        target: String,
     },
 
     /// Show information about a compiled unit
@@ -155,6 +159,10 @@ enum Commands {
         /// Profile output path (default: flamegraph.svg)
         #[arg(long, default_value = "flamegraph.svg")]
         profile_output: PathBuf,
+
+        /// Report heap objects still in scope after run
+        #[arg(long)]
+        leak_check: bool,
     },
 
     /// Run with interactive debugger (breakpoints, watch expressions)
@@ -249,6 +257,51 @@ enum Commands {
         #[arg(default_value = ".")]
         directory: PathBuf,
     },
+
+    /// Interactive REPL with statement history and completion hints
+    Repl {
+        /// Verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    /// Run program and analyze interpreter memory for potential leaks
+    LeakCheck {
+        /// Input Pascal file
+        input: PathBuf,
+
+        /// Verbose output
+        #[arg(short, long)]
+        verbose: bool,
+
+        /// Exit with error if heap objects remain in scope
+        #[arg(long)]
+        strict: bool,
+    },
+
+    /// Start Language Server (stdio); requires --features lsp
+    Lsp,
+
+    /// Show project dependencies and dependency graph
+    Deps {
+        /// Print dependency tree
+        #[arg(long)]
+        tree: bool,
+    },
+
+    /// Run performance benchmark on a Pascal program
+    Bench {
+        /// Input Pascal file
+        input: PathBuf,
+
+        /// Number of iterations
+        #[arg(short, long, default_value = "100")]
+        iterations: u32,
+
+        /// Verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
 }
 
 /// Find pascal.toml from cwd upward and open the build system.
@@ -308,6 +361,7 @@ fn main() -> Result<()> {
             parallel,
             threads,
             defines,
+            target,
         } => compile_file(
             input,
             output,
@@ -322,6 +376,7 @@ fn main() -> Result<()> {
             parallel,
             threads,
             defines,
+            target,
         ),
 
         Commands::Info { ppu_file } => show_ppu_info(ppu_file),
@@ -333,6 +388,7 @@ fn main() -> Result<()> {
             watch,
             profile,
             profile_output,
+            leak_check,
         } => {
             if watch {
                 if let Some(file) = input {
@@ -342,7 +398,7 @@ fn main() -> Result<()> {
                     Ok(())
                 }
             } else if let Some(file) = input {
-                run_file(file, verbose && !quiet, profile.then(|| profile_output))
+                run_file(file, verbose && !quiet, profile.then(|| profile_output), leak_check)
             } else {
                 open_project(verbose && !quiet)?.run(quiet, profile.then(|| profile_output))
             }
@@ -367,6 +423,36 @@ fn main() -> Result<()> {
         } => doc_files(path, format, output, recursive),
 
         Commands::Clean { directory } => clean_directory(directory),
+
+        Commands::Repl { verbose } => pascal::repl::run_repl(verbose),
+
+        Commands::LeakCheck {
+            input,
+            verbose,
+            strict,
+        } => run_leak_check(input, verbose, strict),
+
+        Commands::Lsp => run_lsp(),
+
+        Commands::Deps { tree } => {
+            let bs = open_project(false)?;
+            if tree {
+                print!("{}", bs.dependency_tree());
+            } else {
+                println!("{}", "Dependencies:".cyan().bold());
+                for (name, spec) in &bs.manifest().dependencies {
+                    println!("  {} = {:?}", name, spec);
+                }
+                println!("\nUse --tree for dependency graph");
+            }
+            Ok(())
+        }
+
+        Commands::Bench {
+            input,
+            iterations,
+            verbose,
+        } => run_bench(input, iterations, verbose),
     }
 }
 
@@ -384,6 +470,7 @@ fn compile_file(
     parallel: bool,
     threads: usize,
     defines: Vec<String>,
+    target: String,
 ) -> Result<()> {
     if !input.exists() {
         eprintln!(
@@ -392,6 +479,25 @@ fn compile_file(
             input.display()
         );
         std::process::exit(1);
+    }
+
+    if target.eq_ignore_ascii_case("wasm") {
+        let source = std::fs::read_to_string(&input)?;
+        let wat = pascal::wasm::compile_source_to_wat(&source)?;
+        std::fs::create_dir_all(&output)?;
+        let out_path = output.join(format!(
+            "{}.wat",
+            input.file_stem().unwrap().to_str().unwrap_or("out")
+        ));
+        std::fs::write(&out_path, wat)?;
+        if !quiet {
+            println!(
+                "{} Wrote {}",
+                "Success:".green().bold(),
+                out_path.display()
+            );
+        }
+        return Ok(());
     }
 
     if verbose {
@@ -536,7 +642,12 @@ fn compile_file(
     Ok(())
 }
 
-fn run_file(input: PathBuf, verbose: bool, profile_output: Option<PathBuf>) -> Result<()> {
+fn run_file(
+    input: PathBuf,
+    verbose: bool,
+    profile_output: Option<PathBuf>,
+    leak_check: bool,
+) -> Result<()> {
     if !input.exists() {
         eprintln!(
             "{} File not found: {}",
@@ -572,6 +683,16 @@ fn run_file(input: PathBuf, verbose: bool, profile_output: Option<PathBuf>) -> R
         );
     }
 
+    if leak_check {
+        let (report, run_result) = pascal::leak_check::run_with_leak_check(&program, verbose)?;
+        if let Err(e) = run_result {
+            eprintln!("\n{} {}", "Runtime error:".red().bold(), e);
+            std::process::exit(1);
+        }
+        print!("{}", report.format_report());
+        return Ok(());
+    }
+
     run_program_impl(&program, verbose, profile_output)
 }
 
@@ -595,7 +716,7 @@ fn run_file_watch(input: PathBuf, verbose: bool) -> Result<()> {
     }
 
     loop {
-        run_file(input.clone(), verbose, None)?;
+        run_file(input.clone(), verbose, None, false)?;
         if verbose {
             println!("{} Waiting for changes...", "Info:".cyan().bold());
         }
@@ -686,7 +807,7 @@ fn run_program_impl(
         }
     };
 
-    if let Some(_out) = profile_output {
+    if let Some(ref out) = profile_output {
         #[cfg(feature = "profile")]
         {
             pascal::profile::run_profiled(out, run)?;
@@ -1000,5 +1121,74 @@ fn clean_directory(directory: PathBuf) -> Result<()> {
     }
 
     println!("{} Removed {} PPU file(s)", "Done:".green().bold(), count);
+    Ok(())
+}
+
+fn run_leak_check(input: PathBuf, verbose: bool, strict: bool) -> Result<()> {
+    if !input.exists() {
+        eprintln!(
+            "{} File not found: {}",
+            "Error:".red().bold(),
+            input.display()
+        );
+        std::process::exit(1);
+    }
+
+    let source = std::fs::read_to_string(&input)?;
+    let mut parser = pascal::parser::Parser::new(&source);
+    let program = match parser.parse_program() {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("{} {}", "Parse error:".red().bold(), e);
+            std::process::exit(1);
+        }
+    };
+
+    if verbose {
+        println!("{} {}", "Leak-check:".cyan().bold(), input.display());
+    }
+
+    let (report, run_result) = pascal::leak_check::run_with_leak_check(&program, verbose)?;
+    if let Err(e) = run_result {
+        eprintln!("{} {}", "Runtime error:".red().bold(), e);
+        std::process::exit(1);
+    }
+
+    print!("{}", report.format_report());
+
+    if strict && report.has_potential_leaks() {
+        eprintln!(
+            "{} Heap objects detected in scope (--strict)",
+            "Error:".red().bold()
+        );
+        std::process::exit(1);
+    }
+
+    Ok(())
+}
+
+fn run_lsp() -> Result<()> {
+    #[cfg(feature = "lsp")]
+    {
+        tokio::runtime::Runtime::new()?
+            .block_on(pascal::lsp_server::run_lsp_server())
+    }
+    #[cfg(not(feature = "lsp"))]
+    {
+        eprintln!(
+            "{} LSP requires building with --features lsp",
+            "Error:".red().bold()
+        );
+        std::process::exit(1);
+    }
+}
+
+fn run_bench(input: PathBuf, iterations: u32, verbose: bool) -> Result<()> {
+    if !input.exists() {
+        eprintln!("{} File not found: {}", "Error:".red().bold(), input.display());
+        std::process::exit(1);
+    }
+    let result = pascal::bench::benchmark_file(&input, iterations, verbose)?;
+    print!("{}", result.format_report());
     Ok(())
 }

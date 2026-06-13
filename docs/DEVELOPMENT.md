@@ -19,7 +19,46 @@ pascal run myprog.pas --profile --profile-output cpu.svg
 
 Open the generated SVG in a browser to view the flamegraph. The graph shows where the interpreter spends time during execution.
 
-## Memory Leak Detection
+## Language Server (LSP)
+
+Build with the `lsp` feature and start the server on stdio:
+
+```bash
+cargo build --features lsp
+pascal lsp
+```
+
+Configure your editor to use `pascal lsp` as the Pascal language server. The server provides:
+
+- **Completion** — keywords, variables, types, procedures, functions, builtins
+- **Hover** — symbol documentation
+- **Diagnostics** — parse errors on open/change
+
+VS Code / Cursor: install the grammar from `editors/vscode/` or point `files.associations` at the TextMate grammar in `syntaxes/`.
+
+## REPL
+
+Interactive Pascal session:
+
+```bash
+pascal repl
+```
+
+Commands: `:help`, `:quit`, `:clear`, `:history`, `:complete <prefix>`.
+
+## Memory Leak Check
+
+Analyze interpreter scopes after a run:
+
+```bash
+pascal leak-check program.pas
+pascal leak-check program.pas --strict   # exit 1 if heap objects remain
+pascal run program.pas --leak-check
+```
+
+Reports arrays, objects, and records still held in interpreter scopes at program end.
+
+## Memory Leak Detection (Sanitizers)
 
 For compiled Pascal binaries and the interpreter:
 

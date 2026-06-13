@@ -47,6 +47,22 @@ impl RuntimeEnvironment {
         None
     }
 
+    /// Number of active scopes (for leak analysis)
+    pub fn scope_count(&self) -> usize {
+        self.scopes.len()
+    }
+
+    /// All variables across all scopes (name, value)
+    pub fn all_scope_variables(&self) -> Vec<(String, Value)> {
+        let mut out = Vec::new();
+        for scope in &self.scopes {
+            for (name, val) in scope.iter() {
+                out.push((name.clone(), val.clone()));
+            }
+        }
+        out
+    }
+
     /// Enter a new scope (e.g., for block statements)
     pub fn enter_scope(&mut self) {
         self.scopes.push(Scope::new());

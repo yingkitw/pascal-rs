@@ -14,3 +14,4 @@ mod performance_tests;
 mod oop_tests;
 mod module_tests;
 mod edge_case_tests;
+mod contract_tests;
