@@ -547,7 +547,7 @@ impl fmt::Display for Type {
             Type::String => write!(f, "string"),
             Type::WideString => write!(f, "widestring"),
             Type::Alias { name, target_type } => write!(f, "{} = {}", name, target_type),
-            Type::Array { index_type, element_type, range } => {
+            Type::Array { index_type: _, element_type, range } => {
                 if let Some((start, end)) = range {
                     write!(f, "array[{}..{}] of {}", start, end, element_type)
                 } else {

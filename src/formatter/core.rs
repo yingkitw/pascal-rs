@@ -60,20 +60,6 @@ impl Formatter {
         Ok(())
     }
 
-    /// Write a string with proper indentation handling
-    fn write_str(&mut self, s: &str) -> Result<(), anyhow::Error> {
-        for ch in s.chars() {
-            if ch == '\n' {
-                self.output.push('\n');
-                self.needs_indent = true;
-            } else {
-                self.write_indent()?;
-                self.output.push(ch);
-            }
-        }
-        Ok(())
-    }
-
     /// Write a space according to spacing rules
     fn write_space(&mut self) -> Result<(), anyhow::Error> {
         self.write_indent()?;

@@ -671,7 +671,7 @@ impl Interpreter {
                     }
                 }
             },
-            Stmt::Raise { exception, message } => {
+            Stmt::Raise { exception, message: _ } => {
                 let exc_str = if let Some(exc) = exception {
                     format!("{:?}", self.eval_expr(exc)?)
                 } else {
@@ -852,7 +852,6 @@ impl Interpreter {
                     captured,
                 })
             },
-            _ => Err(anyhow::anyhow!("Unsupported expression type")),
         }
     }
 

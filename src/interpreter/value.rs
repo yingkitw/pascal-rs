@@ -138,9 +138,6 @@ impl Value {
         }
     }
 
-    pub(crate) fn is_real(&self) -> bool {
-        matches!(self, Value::Real(_))
-    }
 }
 
 /// Variable scope

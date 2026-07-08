@@ -7,7 +7,6 @@ use crate::ast::Type;
 use anyhow::{anyhow, Result};
 use std::collections::{HashMap, hash_map::Entry};
 use std::rc::Rc;
-use std::cell::RefCell;
 
 /// Function signature information (Rc for memory efficiency)
 #[derive(Debug, Clone)]
@@ -77,7 +76,6 @@ pub enum ConstValue {
 pub struct OptimizedScope {
     symbols: HashMap<String, Symbol>,
     parent: Option<usize>,
-    stack_offset: i32,
     capacity_limit: usize,
     symbol_count: usize,
 }
@@ -88,7 +86,6 @@ impl OptimizedScope {
         Self {
             symbols: HashMap::with_capacity(capacity_limit),
             parent,
-            stack_offset: 0,
             capacity_limit,
             symbol_count: 0,
         }
@@ -447,7 +444,7 @@ impl OptimizedSymbolTable {
     /// Look up a symbol with optimized cache
     pub fn lookup_symbol(&mut self, name: &str) -> Option<Rc<Symbol>> {
         // First check cache
-        if let Some((scope_id, symbol)) = self.cache.get(name) {
+        if let Some((_scope_id, symbol)) = self.cache.get(name) {
             self.symbol_stats.record_cache_hit();
             return Some(symbol);
         }
@@ -518,9 +515,8 @@ impl OptimizedSymbolTable {
                 crate::ast::SimpleType::Boolean => 1,
                 crate::ast::SimpleType::Char => 1,
                 crate::ast::SimpleType::String => 8, // Pointer
-                _ => 8,
             },
-            Type::Array { index_type, element_type, range } => {
+            Type::Array { index_type: _, element_type, range } => {
                 let element_size = self.get_type_size(element_type.as_ref());
                 // Calculate array size based on range or default size
                 if let Some((start, end)) = range {
@@ -569,7 +565,7 @@ impl OptimizedSymbolTable {
             .sum();
         
         let cache_memory = self.cache.cache.iter()
-            .map(|(name, (_, symbol))| name.len() * std::mem::size_of::<u8>() + std::mem::size_of::<Symbol>())
+            .map(|(name, (_, _symbol))| name.len() * std::mem::size_of::<u8>() + std::mem::size_of::<Symbol>())
             .sum();
 
         MemoryUsage {

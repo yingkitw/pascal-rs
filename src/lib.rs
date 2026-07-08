@@ -33,11 +33,6 @@ pub mod formatter;
 pub mod interpreter;
 pub mod lexer;
 pub mod loader;
-pub mod visual_framework;
-pub mod visual_components;
-pub mod visual_forms;
-pub mod visual_events;
-pub mod visual_themes;
 #[cfg(feature = "mcp")]
 pub mod mcp_server;
 pub mod optimizer;
@@ -64,11 +59,6 @@ pub use ast::{
     ModuleResult, Parameter, ProcedureDecl, Program, SimpleType, Statement, Stmt, Type, Unit,
 };
 pub use error::{CompileOptions, CompileResult, CompilerError, ParseError};
-pub use visual_framework::*;
-pub use visual_components::*;
-pub use visual_forms::*;
-pub use visual_events::*;
-pub use visual_themes::*;
 pub use error_suggestions::{did_you_mean, suggest_identifier, suggest_similar};
 pub use source_map::{SourceMap, SourceMapping};
 pub use interpreter::Interpreter;

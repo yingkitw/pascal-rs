@@ -430,8 +430,8 @@ impl CompilerError {
     }
 
     /// Format the error as a diagnostic
-    pub fn to_diagnostic(&self, source_manager: &SourceManager) -> Diagnostic {
-        let severity = self.severity();
+    pub fn to_diagnostic(&self, _source_manager: &SourceManager) -> Diagnostic {
+        let _severity = self.severity();
         let location = self.location().copied().unwrap_or_else(|| SourceLocation::new(0, 0, 0, 0, 0));
         
         let message = self.to_string();

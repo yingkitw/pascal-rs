@@ -109,7 +109,6 @@ impl GenericType {
 /// Type inference engine
 pub struct TypeInference {
     type_vars: HashMap<String, Type>,
-    constraints: Vec<TypeConstraint>,
     next_type_var: u32,
 }
 
@@ -118,7 +117,6 @@ impl TypeInference {
     pub fn new() -> Self {
         Self {
             type_vars: HashMap::new(),
-            constraints: Vec::new(),
             next_type_var: 0,
         }
     }

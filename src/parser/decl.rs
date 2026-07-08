@@ -1565,44 +1565,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Parse a literal value (deprecated: use parse_const_value for const declarations)
-    fn parse_literal_int(&mut self) -> ParseResult<Option<crate::ast::Literal>> {
-        match self.peek() {
-            Some(Token::IntegerLiteral(_)) => {
-                if let Some(Token::IntegerLiteral(val)) = self.current_token.take() {
-                    self.advance();
-                    Ok(Some(crate::ast::Literal::Integer(val)))
-                } else {
-                    Ok(None)
-                }
-            }
-            Some(Token::RealLiteral(_)) => {
-                if let Some(Token::RealLiteral(val)) = self.current_token.take() {
-                    self.advance();
-                    Ok(Some(crate::ast::Literal::Real(val)))
-                } else {
-                    Ok(None)
-                }
-            }
-            Some(Token::StringLiteral(_)) => {
-                if let Some(Token::StringLiteral(val)) = self.current_token.take() {
-                    self.advance();
-                    Ok(Some(crate::ast::Literal::String(val)))
-                } else {
-                    Ok(None)
-                }
-            }
-            Some(Token::CharLiteral(_)) => {
-                if let Some(Token::CharLiteral(val)) = self.current_token.take() {
-                    self.advance();
-                    Ok(Some(crate::ast::Literal::Char(val)))
-                } else {
-                    Ok(None)
-                }
-            }
-            _ => Ok(None),
-        }
-    }
 }
 
 #[cfg(test)]

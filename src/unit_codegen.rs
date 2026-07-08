@@ -95,28 +95,6 @@ impl UnitCodeGenerator {
         offset
     }
 
-    /// Get the size of a type in bytes
-    fn get_type_size(&self, typ: &Type) -> i32 {
-        match typ {
-            Type::Simple(simple) => match simple {
-                SimpleType::Integer => 8,
-                SimpleType::Real => 8,
-                SimpleType::Boolean => 1,
-                SimpleType::Char => 1,
-                SimpleType::String => 256, // Default string size
-            },
-            Type::Integer => 8,
-            Type::Real => 8,
-            Type::Boolean => 1,
-            Type::Char => 1,
-            Type::String => 256,
-            Type::Array { .. } => 64, // Simplified
-            Type::Record { fields, .. } => fields.len() as i32 * 8,
-            Type::Pointer(_) => 8,
-            _ => 8,
-        }
-    }
-
     /// Align stack size to 16-byte boundary
     fn align_stack(&self, size: i32) -> i32 {
         ((size + 15) / 16) * 16

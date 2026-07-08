@@ -1,6 +1,5 @@
 //! Runtime environment for Pascal interpreter
 
-use crate::ast::Block;
 use crate::interpreter::{value::Scope, value::Value};
 use anyhow::Result;
 

@@ -3,8 +3,6 @@
 //! Provides high-level functions for formatting Pascal source code
 //! with automatic configuration discovery and error handling.
 
-use crate::ast::*;
-use crate::formatter::config::*;
 use crate::formatter::core::Formatter;
 use crate::parser::Parser;
 use anyhow::{Context, Result};

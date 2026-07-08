@@ -1,6 +1,6 @@
 //! Interactive REPL for Pascal with basic tab-completion hints.
 
-use crate::ast::{Block, Program, Statement, Stmt};
+use crate::ast::{Block, Program, Statement};
 use crate::ide::completions_at;
 use crate::interpreter::Interpreter;
 use std::io::{self, BufRead, Write};

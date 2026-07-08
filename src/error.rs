@@ -6,7 +6,6 @@ use std::path::PathBuf;
 use thiserror::Error;
 
 use crate::lexer::LexerError;
-use crate::enhanced_error::{SourceLocation, ErrorReporter};
 
 /// Compilation result
 #[derive(Debug)]

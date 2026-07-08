@@ -248,7 +248,7 @@ impl ScopeUtils {
     /// Resolve scope hierarchy (returns list of scope names from global to local)
     pub fn resolve_scope_hierarchy(scope_manager: &ScopeManager) -> Vec<String> {
         let mut hierarchy = Vec::new();
-        for (i, scope) in scope_manager.scopes.iter().enumerate().rev() {
+        for (i, _scope) in scope_manager.scopes.iter().enumerate().rev() {
             hierarchy.push(format!("scope_{}", i));
         }
         hierarchy

@@ -3,7 +3,7 @@
 //! Provides utilities to convert between different error formats and maintain backward compatibility.
 
 use crate::error::CompilerError as OldCompilerError;
-use crate::enhanced_error::{CompilerError, SourceLocation, ErrorReporter, Diagnostic};
+use crate::enhanced_error::{CompilerError, SourceLocation, ErrorReporter};
 
 /// Convert legacy compiler error to enhanced error format
 pub fn legacy_to_enhanced(error: OldCompilerError) -> CompilerError {
@@ -103,7 +103,7 @@ impl<T> ResultExt<T> for LegacyResult<T> {
 }
 
 /// Helper to create formatted error messages
-pub fn format_error_message(error: &CompilerError, source_manager: &ErrorReporter) -> String {
+pub fn format_error_message(error: &CompilerError, _source_manager: &ErrorReporter) -> String {
     match error {
         CompilerError::LexerError { location, message } => {
             format!("Lexical error at {}: {}", location.format(), message)
@@ -125,7 +125,7 @@ pub fn format_error_message(error: &CompilerError, source_manager: &ErrorReporte
             };
             format!("Semantic error at {}: {}{}", location.format(), message, suggestion_text)
         },
-        CompilerError::TypeError { location, message, expected, found } => {
+        CompilerError::TypeError { location, message: _, expected, found } => {
             format!("Type error at {}: Expected {}, found {}", 
                    location.format(), expected, found)
         },

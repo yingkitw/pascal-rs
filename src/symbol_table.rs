@@ -149,10 +149,10 @@ mod tests {
     fn test_constants() {
         let mut table = SymbolTable::new();
         table
-            .add_const("PI".to_string(), Type::Real, ConstValue::Real(3.14159))
+            .add_const("PI".to_string(), Type::Real, ConstValue::Real(std::f64::consts::PI))
             .unwrap();
         let symbol = table.lookup("PI").unwrap();
         assert!(symbol.is_const());
-        assert_eq!(symbol.const_value, Some(ConstValue::Real(3.14159)));
+        assert_eq!(symbol.const_value, Some(ConstValue::Real(std::f64::consts::PI)));
     }
 }

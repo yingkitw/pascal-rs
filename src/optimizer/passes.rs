@@ -16,15 +16,6 @@ fn optimize_expr_in_place(expr: &mut Expr, optimizer: &Optimizer) {
     *expr = optimizer.optimize_expr(expr);
 }
 
-fn optimize_stmt_in_place(stmt: &mut Stmt, optimizer: &Optimizer) -> bool {
-    if let Some(opt) = optimizer.optimize_stmt(stmt) {
-        *stmt = opt;
-        true
-    } else {
-        false
-    }
-}
-
 fn fold_block(block: &mut Block, optimizer: &Optimizer) -> usize {
     let mut modifications = 0;
 
@@ -62,7 +53,6 @@ fn optimize_stmt_tree(stmt: &mut Stmt, optimizer: &Optimizer) -> bool {
         } => {
             optimize_expr_in_place(condition, optimizer);
             if let Expr::Literal(Literal::Boolean(val)) = &*condition {
-                changed = true;
                 if *val {
                     if then_branch.len() == 1 {
                         *stmt = then_branch[0].clone();
@@ -609,7 +599,7 @@ impl OptimizationPass for RegisterAllocationPass {
     }
 
     fn optimize(&mut self, ast: &mut Program) -> Result<OptimizationResult, CompilerError> {
-        use crate::register_allocator::{LiveRange, LiveRangeAnalyzer, RegisterAllocator};
+        use crate::register_allocator::{LiveRangeAnalyzer, RegisterAllocator};
 
         let mut analyzer = LiveRangeAnalyzer::new();
         for var in &ast.block.vars {

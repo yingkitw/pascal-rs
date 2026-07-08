@@ -1,7 +1,6 @@
 //! Built-in functions and procedures for Pascal interpreter
 
 use crate::interpreter::value::Value;
-use crate::ast::{Expression, Expr};
 use anyhow::Result;
 use std::collections::HashMap;
 use rand::Rng;
@@ -255,11 +254,11 @@ impl Builtins {
         }
     }
 
-    fn read(args: &[Value]) -> Result<Value> {
+    fn read(_args: &[Value]) -> Result<Value> {
         todo!("read: needs user input implementation")
     }
 
-    fn readln(args: &[Value]) -> Result<Value> {
+    fn readln(_args: &[Value]) -> Result<Value> {
         todo!("readln: needs user input implementation")
     }
 
@@ -376,7 +375,7 @@ impl Builtins {
     // Array function implementations
     fn low(args: &[Value]) -> Result<Value> {
         match &args[0] {
-            Value::Array { elements: arr, .. } => Ok(Value::Integer(0)), // Pascal arrays are 1-based, but we return 0 for low
+            Value::Array { elements: _arr, .. } => Ok(Value::Integer(0)), // Pascal arrays are 1-based, but we return 0 for low
             _ => Err(anyhow::anyhow!("low: array expected")),
         }
     }
@@ -385,13 +384,6 @@ impl Builtins {
         match args[0] {
             Value::Array { elements: ref arr, .. } => Ok(Value::Integer((arr.len() - 1) as i64)),
             _ => Err(anyhow::anyhow!("high: array expected")),
-        }
-    }
-
-    fn array_length(args: &[Value]) -> Result<Value> {
-        match args[0] {
-            Value::Array { elements: ref arr, .. } => Ok(Value::Integer(arr.len() as i64)),
-            _ => Err(anyhow::anyhow!("length: array expected")),
         }
     }
 
@@ -425,7 +417,7 @@ impl Builtins {
         match args[0] {
             // random() - returns random float between 0 and 1
             Value::Nil => {
-                let mut rng = rand::thread_rng();
+                let _rng = rand::thread_rng();
                 Ok(Value::Real(rand::random::<f64>()))
             },
             // random(n) - returns random integer between 0 and n-1
@@ -437,7 +429,7 @@ impl Builtins {
         }
     }
 
-    fn randomize(args: &[Value]) -> Result<Value> {
+    fn randomize(_args: &[Value]) -> Result<Value> {
         // Initialize random number generator
         let _ = rand::thread_rng();
         Ok(Value::Nil)

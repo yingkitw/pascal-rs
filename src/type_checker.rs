@@ -204,7 +204,7 @@ mod tests {
 
         assert_eq!(checker.literal_type(&Literal::Integer(42)), Type::Integer);
         assert_eq!(checker.literal_type(&Literal::Boolean(true)), Type::Boolean);
-        assert_eq!(checker.literal_type(&Literal::Real(3.14)), Type::Real);
+        assert_eq!(checker.literal_type(&Literal::Real(std::f64::consts::PI)), Type::Real);
     }
 
     #[test]

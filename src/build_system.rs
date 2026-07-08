@@ -632,7 +632,7 @@ end."#,
                 .map_err(|e| anyhow!("Runtime error: {}", e))
         };
 
-        if let Some(ref out) = profile_output {
+        if let Some(_out) = profile_output {
             #[cfg(feature = "profile")]
             {
                 crate::profile::run_profiled(out, run)??;
