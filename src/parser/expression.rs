@@ -1,7 +1,6 @@
 //! Expression parsing for the Pascal parser
 
-use crate::ast::{Expr, Literal};
-use crate::parser::{ParseResult, Parser};
+use crate::ast::{Expr, Literal};use crate::parser::{ParseResult, Parser};
 use crate::tokens::Token;
 use crate::utils::ast_helpers::*;
 use crate::ParseError;
@@ -146,6 +145,10 @@ impl<'a> Parser<'a> {
                                 arguments: vec![result, idx_expr],
                             };
                         }
+                    } else if self.check(Token::Caret) {
+                        // Pointer dereference: p^
+                        self.advance();
+                        result = Expr::Dereference { expression: Box::new(result) };
                     } else {
                         break;
                     }
@@ -175,6 +178,7 @@ impl<'a> Parser<'a> {
                 );
                 expr
             }
+            Some(Token::Function) | Some(Token::Procedure) => self.parse_lambda_expression()?,
             Some(Token::LeftBracket) => {
                 // Set literal: [a, b, c]
                 self.advance();
@@ -224,6 +228,85 @@ impl<'a> Parser<'a> {
 
         self.consume_or_skip(Token::RightParen, &[Token::Semicolon, Token::End]);
         Ok(args)
+    }
+
+    /// Parse an anonymous function / lambda expression.
+    ///
+    /// Syntax: `function(params): type begin ... end` or `procedure(params) begin ... end`
+    pub fn parse_lambda_expression(&mut self) -> ParseResult<Option<Expr>> {
+        let is_function = self.check(Token::Function);
+        self.advance(); // function | procedure
+
+        let mut params: Vec<crate::ast::Parameter> = Vec::new();
+        if self.check(Token::LeftParen) {
+            self.advance();
+            if !self.check(Token::RightParen) {
+                loop {
+                    // collect names
+                    let mut names: Vec<String> = Vec::new();
+                    loop {
+                        if let Some(Token::Identifier(name)) = self.peek() {
+                            names.push(name.clone());
+                            self.advance();
+                        }
+                        if self.check(Token::Comma) {
+                            self.advance();
+                        } else {
+                            break;
+                        }
+                    }
+                    self.consume_or_skip(Token::Colon, &[Token::Semicolon, Token::RightParen]);
+                    let ptype = self.parse_type().unwrap_or(crate::ast::Type::Simple(
+                        crate::ast::SimpleType::Integer,
+                    ));
+                    for n in names {
+                        params.push(crate::ast::Parameter {
+                            name: n,
+                            param_type: ptype.clone(),
+                            is_var: false,
+                            is_const: false,
+                            is_out: false,
+                            default_value: None,
+                        });
+                    }
+                    if self.check(Token::Semicolon) {
+                        self.advance();
+                        continue;
+                    }
+                    break;
+                }
+            }
+            self.consume_or_skip(Token::RightParen, &[Token::Colon, Token::Begin]);
+        }
+
+        let return_type = if is_function {
+            self.consume_or_skip(Token::Colon, &[Token::Begin]);
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+
+        let body = if self.check(Token::Begin) {
+            let stmts = self.parse_compound_statement()?;
+            crate::ast::Block {
+                consts: vec![],
+                types: vec![],
+                vars: vec![],
+                procedures: vec![],
+                functions: vec![],
+                classes: vec![],
+                statements: stmts,
+            }
+        } else {
+            crate::ast::Block::empty()
+        };
+
+        Ok(Some(Expr::Lambda {
+            params,
+            body: Box::new(body),
+            return_type,
+            captures: true,
+        }))
     }
 
     /// Parse a literal value

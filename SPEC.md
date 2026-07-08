@@ -48,6 +48,7 @@ The project is incrementally adding **Object Pascal** (Delphi/Lazarus) features:
 | `pointer ^T` | ✅ | ❌ | ❌ |
 | `set of T` | ✅ AST only | ❌ | ❌ |
 | `file of T` | ✅ AST only | ❌ | ❌ |
+| generic `TList<T>` (arrays/records) | ✅ | ✅ basic | ❌ |
 
 ### Statements (Parser + Interpreter)
 

@@ -102,6 +102,8 @@ Source (.pas) → Lexer (tokens.rs) → Parser (parser/) → AST (ast.rs)
 - `ClassDecl { name, parent, interfaces, fields, methods, properties }` — Object Pascal class
 - `MethodDecl` — method with virtual/override/abstract/constructor/destructor flags
 - `PropertyDecl` — property with read/write specifiers
+- `TypeDecl { name, type_definition, visibility, type_parameters }` — type declaration; `type_parameters` enables generic types such as `TList<T> = array of T`
+- `Type::Generic { name, constraints }` and `Type::GenericInstance { base_type, type_arguments }` — generic type parameter and concrete instantiation
 - `ExceptClause { exception_type, variable, body }` — exception handler
 
 ### Parser (`parser/`)
@@ -114,9 +116,10 @@ Source (.pas) → Lexer (tokens.rs) → Parser (parser/) → AST (ast.rs)
 - `parse_class_decl()` → class with visibility sections, methods, properties
 
 ### Interpreter (`interpreter.rs`)
-- `Interpreter { scopes, functions, verbose }` — interpreter state
+- `Interpreter { scopes, functions, verbose, generic_types }` — interpreter state
 - `Value` — enum: Integer, Real, Boolean, Char, String, Nil
 - `Scope { variables }` — variable scope with HashMap
+- Generic type registry (`GenericTypeDefinition`) — stores `type TList<T> = array of T;` and instantiates it for `TList<Integer>`
 - Built-in procedures: write, writeln, readln, inc, dec, halt
 - Built-in functions: abs, sqr, sqrt, sin, cos, ln, exp, round, trunc, ord, chr, length, etc.
 

@@ -2,9 +2,9 @@
 
 ## Current Status
 
-**165+ lib tests + integration/property/contract/load tests passing.** Build clean.
+**300+ tests passing.** Build clean.
 
-Interpreter supports standard Pascal + full Object Pascal (classes, exceptions, inheritance, virtual dispatch, properties, arrays, records, enums, sets, string indexing, with, exit, uses, nested functions).
+Interpreter supports standard Pascal + full Object Pascal (classes, exceptions, inheritance, virtual dispatch, properties, arrays, records, enums, sets, string indexing, with, exit, uses, nested functions) + basic generic type parameters for arrays and records.
 
 Build system with `pascal.toml` manifest, dependency management (path/git/registry cache), lock file, incremental cache, and topological build ordering.
 
@@ -104,7 +104,8 @@ Build system with `pascal.toml` manifest, dependency management (path/git/regist
 - [ ] Zero-copy parsing and AST construction — future; would require lifetime params in AST
 
 ### Compiler & Language
-- [ ] Generics / generic type parameters with variance and constraints — `advanced_types.rs` infrastructure; parser/interpreter wiring pending
+- [x] Basic generic type parameters — parser support for `type TList<T> = array of T;` and `var x: TList<Integer>;`, interpreter registry + type substitution for arrays/records (`src/parser/decl.rs`, `src/interpreter/mod.rs`, `src/advanced_types.rs`)
+- [ ] Generics: variance, constraints, generic classes/methods, and generic function/procedure declarations
 - [ ] Interface types with multiple inheritance and default methods — `interfaces.rs` registry; full parser support pending
 - [x] Compile-time constant evaluation and constexpr functions — `constant_eval`, `parse_const_value` for const expressions
 - [x] Optimization level flags (-O0, -O1, -O2, -O3) — Compile -O, Build -O override
@@ -240,4 +241,5 @@ Build system with `pascal.toml` manifest, dependency management (path/git/regist
 - [x] Module system (units, PPU files, parallel compilation)
 - [x] CLI (init, build, run, add, remove, compile, info, clean, fmt, check, doc, debug, repl, lsp, deps, bench, leak-check)
 - [x] Build system (pascal.toml, pascal.lock, dependency resolution, incremental cache)
-- [x] 270+ tests passing
+- [x] Basic generic type parameters (parser + interpreter substitution)
+- [x] 300+ tests passing

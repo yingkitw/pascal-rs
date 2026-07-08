@@ -245,6 +245,92 @@ impl Default for TypeInference {
     }
 }
 
+/// Stored definition of a user-declared generic type.
+pub struct GenericTypeDefinition {
+    pub name: String,
+    pub type_parameters: Vec<String>,
+    pub body: Type,
+}
+
+impl GenericTypeDefinition {
+    /// Create a new generic type definition.
+    pub fn new(name: String, type_parameters: Vec<String>, body: Type) -> Self {
+        Self {
+            name,
+            type_parameters,
+            body,
+        }
+    }
+
+    /// Instantiate the generic body by replacing type parameters with concrete types.
+    pub fn instantiate(&self, type_arguments: &[Type]) -> Result<Type> {
+        if type_arguments.len() != self.type_parameters.len() {
+            return Err(anyhow!(
+                "Generic type {} expected {} type arguments, got {}",
+                self.name,
+                self.type_parameters.len(),
+                type_arguments.len()
+            ));
+        }
+
+        let mapping: HashMap<String, Type> = self
+            .type_parameters
+            .iter()
+            .cloned()
+            .zip(type_arguments.iter().cloned())
+            .collect();
+
+        Ok(substitute_type_params(&self.body, &mapping))
+    }
+}
+
+/// Recursively replace Type::Generic placeholders with concrete types.
+pub fn substitute_type_params(typ: &Type, mapping: &HashMap<String, Type>) -> Type {
+    match typ {
+        Type::Generic { name, .. } => mapping.get(name).cloned().unwrap_or_else(|| typ.clone()),
+        Type::Alias { name, target_type } => Type::Alias {
+            name: name.clone(),
+            target_type: Box::new(substitute_type_params(target_type, mapping)),
+        },
+        Type::Array {
+            index_type,
+            element_type,
+            range,
+        } => Type::Array {
+            index_type: Box::new(substitute_type_params(index_type, mapping)),
+            element_type: Box::new(substitute_type_params(element_type, mapping)),
+            range: *range,
+        },
+        Type::Record { fields, is_packed } => Type::Record {
+            fields: fields
+                .iter()
+                .map(|(k, v)| (k.clone(), Box::new(substitute_type_params(v, mapping))))
+                .collect(),
+            is_packed: *is_packed,
+        },
+        Type::Set { base_type } => Type::Set {
+            base_type: Box::new(substitute_type_params(base_type, mapping)),
+        },
+        Type::File { element_type } => Type::File {
+            element_type: element_type
+                .as_ref()
+                .map(|t| Box::new(substitute_type_params(t, mapping))),
+        },
+        Type::Pointer(inner) => Type::Pointer(Box::new(substitute_type_params(inner, mapping))),
+        Type::GenericInstance {
+            base_type,
+            type_arguments,
+        } => Type::GenericInstance {
+            base_type: base_type.clone(),
+            type_arguments: type_arguments
+                .iter()
+                .map(|t| substitute_type_params(t, mapping))
+                .collect(),
+        },
+        _ => typ.clone(),
+    }
+}
+
 /// Operator overload definition
 #[derive(Debug, Clone)]
 pub struct OperatorOverload {

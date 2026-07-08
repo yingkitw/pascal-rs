@@ -33,6 +33,7 @@ pub struct Parser<'a> {
     current_token: Option<Token>,
     current_location: SourceLocation,
     errors: Vec<ParseError>,
+    generic_params: Vec<String>,
 }
 
 impl<'a> Parser<'a> {
@@ -47,6 +48,7 @@ impl<'a> Parser<'a> {
             current_token,
             current_location: location,
             errors: Vec::new(),
+            generic_params: Vec::new(),
         }
     }
 

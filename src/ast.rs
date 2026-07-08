@@ -277,6 +277,14 @@ pub enum Expression {
         expression: Box<Expression>,
         type_name: String,
     },
+    /// Anonymous function / lambda expression.
+    Lambda {
+        params: Vec<Parameter>,
+        body: Box<Block>,
+        return_type: Option<Type>,
+        /// Whether this lambda captures its surrounding environment.
+        captures: bool,
+    },
 }
 
 // ======== Literals ========
@@ -344,6 +352,7 @@ pub struct TypeDecl {
     pub name: String,
     pub type_definition: Type,
     pub visibility: FieldVisibility,
+    pub type_parameters: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

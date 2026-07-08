@@ -80,6 +80,10 @@ impl<'a> Parser<'a> {
                         arguments: vec![target_expr, idx_expr],
                     };
                 }
+            } else if self.check(Token::Caret) {
+                // Pointer dereference lvalue: p^
+                self.advance();
+                target_expr = Expr::Dereference { expression: Box::new(target_expr) };
             } else {
                 break;
             }

@@ -16,6 +16,8 @@ pub fn type_name(value: &Value) -> &'static str {
         Value::Record { .. } => "Record",
         Value::Enum { type_name, .. } => return leak_class_name(type_name),
         Value::Set { .. } => "Set",
+        Value::Pointer(_) => "Pointer",
+        Value::Closure { .. } => "Function",
     }
 }
 

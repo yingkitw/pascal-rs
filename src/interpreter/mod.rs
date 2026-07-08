@@ -18,7 +18,8 @@ pub use functions::*;
 mod builtins;
 pub use builtins::*;
 
-use crate::ast::{Block, Expr, ForDirection, Literal, Program, Stmt, ClassDecl, Type};
+use crate::ast::{Block, Expr, ForDirection, Literal, Program, Stmt, ClassDecl, Type, SimpleType};
+use crate::advanced_types::{GenericTypeDefinition, OperatorRegistry, OperatorOverload, OverloadableOperator};
 use anyhow::Result;
 use std::collections::HashMap;
 
@@ -34,10 +35,17 @@ pub struct Interpreter {
     scope_manager: ScopeManager,
     functions: FunctionRegistry,
     classes: HashMap<String, ClassDecl>,
+    generic_types: HashMap<String, GenericTypeDefinition>,
     interface_registry: crate::interfaces::InterfaceRegistry,
     string_pool: crate::memory_pool::StringPool,
     builtins: BuiltinRegistry,
     ffi: crate::ffi::FfiRegistry,
+    /// Heap-allocated slots referenced by `Value::Pointer(id)`.
+    heap: HashMap<usize, Value>,
+    /// Next free heap slot id.
+    next_heap_id: usize,
+    /// Registered operator overloads (keyed by operator + operand types).
+    operator_registry: OperatorRegistry,
     pub debug_breakpoint_check: Option<DebugBreakpointCheck>,
     pub debug_breakpoint_handler: Option<DebugBreakpointHandler>,
 }
@@ -50,13 +58,92 @@ impl Interpreter {
             scope_manager: ScopeManager::new(verbose),
             functions: FunctionRegistry::new(),
             classes: HashMap::new(),
+            generic_types: HashMap::new(),
             interface_registry: crate::interfaces::InterfaceRegistry::new(),
             string_pool: crate::memory_pool::StringPool::new(),
             builtins: create_default_registry(),
             ffi: crate::ffi::create_default_ffi_registry(),
+            heap: HashMap::new(),
+            next_heap_id: 0,
+            operator_registry: OperatorRegistry::new(),
             debug_breakpoint_check: None,
             debug_breakpoint_handler: None,
         }
+    }
+
+    /// Allocate a new heap slot initialized to `value`, returning its pointer id.
+    fn heap_alloc(&mut self, value: Value) -> usize {
+        let id = self.next_heap_id;
+        self.next_heap_id += 1;
+        self.heap.insert(id, value);
+        id
+    }
+
+    /// Read a variable, supporting dotted record/object field access (e.g. `a.b.c`).
+    fn eval_variable(&mut self, name: &str) -> Result<Value> {
+        if let Some((base, rest)) = name.split_once('.') {
+            let base_val = self.runtime.get_variable_value(base).ok_or_else(|| anyhow::anyhow!("Undefined variable: {}", base))?;
+            return Ok(Self::read_field_path(&base_val, rest));
+        }
+        if let Some(val) = self.runtime.get_variable_value(name) {
+            Ok(val)
+        } else {
+            Err(anyhow::anyhow!("Undefined variable: {}", name))
+        }
+    }
+
+    /// Walk a dotted field path under a record/object value.
+    fn read_field_path(value: &Value, path: &str) -> Value {
+        let mut current = value.clone();
+        for part in path.split('.') {
+            current = match &current {
+                Value::Record { fields, .. } | Value::Object { fields, .. } => {
+                    fields.get(&part.to_lowercase()).cloned().unwrap_or(Value::Nil)
+                }
+                _ => Value::Nil,
+            };
+        }
+        current
+    }
+
+    /// Assign to a variable or a dotted record/object field path (e.g. `a.b := ...`).
+    fn assign_variable(&mut self, name: &str, value: Value) -> Result<()> {
+        if let Some((base, rest)) = name.split_once('.') {
+            let mut base_val = self.runtime.get_variable_value(base).ok_or_else(|| anyhow::anyhow!("Undefined variable: {}", base))?;
+            Self::write_field_path(&mut base_val, rest, value);
+            self.runtime.set_variable(base.to_string(), base_val);
+            return Ok(());
+        }
+        self.runtime.set_variable(name.to_string(), value);
+        Ok(())
+    }
+
+    fn write_field_path(root: &mut Value, path: &str, value: Value) {
+        let mut segments: Vec<&str> = path.split('.').collect();
+        fn drill<'a>(val: &'a mut Value, segs: &mut Vec<&str>, value: Value) {
+            if segs.is_empty() {
+                return;
+            }
+            let seg = segs.remove(0).to_lowercase();
+            if segs.is_empty() {
+                match val {
+                    Value::Record { fields, .. } | Value::Object { fields, .. } => {
+                        fields.insert(seg, value);
+                    }
+                    _ => {}
+                }
+                return;
+            }
+            match val {
+                Value::Record { fields, .. } | Value::Object { fields, .. } => {
+                    if let Some(child) = fields.get_mut(&seg) {
+                        drill(child, segs, value);
+                    }
+                }
+                _ => {}
+            }
+        }
+        drill(root, &mut segments, value);
     }
 
     /// Get the current scope for testing purposes
@@ -101,14 +188,14 @@ impl Interpreter {
     /// Declare variables in a block
     pub fn declare_block_vars(&mut self, block: &Block) -> Result<()> {
         for var in &block.vars {
-            let default_value = Self::default_value_for_type(&var.variable_type)?;
+            let default_value = self.default_value_for_type(&var.variable_type)?;
             self.runtime.declare_variable(&var.name, default_value)?;
         }
         Ok(())
     }
 
     /// Create a default value for a given type
-    fn default_value_for_type(typ: &crate::ast::Type) -> Result<Value> {
+    fn default_value_for_type(&self, typ: &crate::ast::Type) -> Result<Value> {
         use crate::ast::{Type, SimpleType};
         Ok(match typ {
             Type::Simple(SimpleType::Integer) => Value::Integer(0),
@@ -123,7 +210,7 @@ impl Interpreter {
             Type::String => Value::String("".to_string()),
             Type::WideString => Value::String("".to_string()),
             Type::Array { element_type, range, .. } => {
-                let elem_default = Self::default_value_for_type(element_type)?;
+                let elem_default = self.default_value_for_type(element_type)?;
                 if let Some((start, end)) = range {
                     let size = (end - start + 1).max(0) as usize;
                     Value::Array {
@@ -140,9 +227,20 @@ impl Interpreter {
             Type::Record { fields, .. } => {
                 let mut field_values = HashMap::new();
                 for (name, field_type) in fields {
-                    field_values.insert(name.clone(), Self::default_value_for_type(field_type)?);
+                    field_values.insert(name.clone(), self.default_value_for_type(field_type)?);
                 }
-                Value::Record { fields: field_values }
+                Value::Record { fields: field_values, variant_tag: None, type_name: None }
+            }
+            Type::Alias { name, target_type } => {
+                // Stamp the declared type name onto records so operator overloads
+                // and reflection can dispatch on the named type.
+                let mut value = self.default_value_for_type(target_type)?;
+                if let Value::Record { type_name, .. } = &mut value {
+                    if type_name.is_none() {
+                        *type_name = Some(name.clone());
+                    }
+                }
+                value
             }
             Type::Enum { values } => {
                 if let Some(first) = values.first() {
@@ -154,6 +252,17 @@ impl Interpreter {
                     Value::Nil
                 }
             }
+            Type::GenericInstance {
+                base_type,
+                type_arguments,
+            } => {
+                if let Some(def) = self.generic_types.get(base_type) {
+                    let instantiated = def.instantiate(type_arguments)?;
+                    self.default_value_for_type(&instantiated)?
+                } else {
+                    Value::Nil
+                }
+            }
             Type::Pointer(_) => Value::Nil,
             Type::Set { .. } => Value::Nil,
             Type::File { .. } => Value::Nil,
@@ -161,7 +270,7 @@ impl Interpreter {
         })
     }
 
-    /// Register type declarations (enum constants) in a block
+    /// Register type declarations (enum constants and generic types) in a block
     pub fn register_block_types(&mut self, block: &Block) -> Result<()> {
         for type_decl in &block.types {
             if let Type::Enum { values } = &type_decl.type_definition {
@@ -175,6 +284,17 @@ impl Interpreter {
                         },
                     );
                 }
+            }
+
+            if !type_decl.type_parameters.is_empty() {
+                self.generic_types.insert(
+                    type_decl.name.clone(),
+                    GenericTypeDefinition::new(
+                        type_decl.name.clone(),
+                        type_decl.type_parameters.clone(),
+                        type_decl.type_definition.clone(),
+                    ),
+                );
             }
         }
         Ok(())
@@ -248,6 +368,42 @@ impl Interpreter {
         self.interface_registry.register(iface);
     }
 
+    /// Register a user-defined operator overload (the implementation is a function
+    /// with the given name, already registered in the function table).
+    pub fn register_operator_overload(&mut self, overload: OperatorOverload) {
+        self.operator_registry.register(overload);
+    }
+
+    /// Map a runtime value to an AST `Type` used for overload keying.
+    fn type_of_value(&self, v: &Value) -> Option<Type> {
+        Some(match v {
+            Value::Integer(_) => Type::Integer,
+            Value::Real(_) => Type::Real,
+            Value::Boolean(_) => Type::Boolean,
+            Value::Char(_) => Type::Char,
+            Value::String(_) => Type::String,
+            Value::Record { type_name: Some(name), .. } => Type::Alias {
+                name: name.clone(),
+                target_type: Box::new(Type::Simple(SimpleType::Integer)),
+            },
+            Value::Object { class_name, .. } => Type::Alias {
+                name: class_name.clone(),
+                target_type: Box::new(Type::Simple(SimpleType::Integer)),
+            },
+            _ => return None,
+        })
+    }
+
+    /// Try to resolve a binary op via a registered overload; returns None if no overload applies.
+    fn try_operator_overload(&self, operator: &str, left: &Value, right: &Value) -> Option<String> {
+        let op = OverloadableOperator::from_operator_str(operator)?;
+        let lt = self.type_of_value(left)?;
+        let rt = self.type_of_value(right)?;
+        self.operator_registry
+            .lookup(&op, &lt, Some(&rt))
+            .map(|o| o.implementation.clone())
+    }
+
     /// Register functions and procedures in a block
     pub fn register_block_functions(&mut self, block: &Block) -> Result<()> {
         FunctionConverter::register_from_block(
@@ -293,7 +449,7 @@ impl Interpreter {
                 let val = self.eval_expr(value)?;
                 match target {
                     Expr::Variable(name) => {
-                        self.runtime.set_variable(name.clone(), val);
+                        self.assign_variable(name, val)?;
                     },
                     Expr::FunctionCall { name, arguments } if name == "__index__" => {
                         if let Some((root_name, index_exprs)) = Self::collect_index_chain(target) {
@@ -303,6 +459,16 @@ impl Interpreter {
                             self.runtime.set_nested_element(root_name, &indices, val)?;
                         } else {
                             return Err(anyhow::anyhow!("Unsupported assignment target"));
+                        }
+                    },
+                    Expr::Dereference { expression } => {
+                        let ptr = self.eval_expr(expression)?;
+                        match ptr {
+                            Value::Pointer(id) => {
+                                self.heap.insert(id, val);
+                            },
+                            Value::Nil => return Err(anyhow::anyhow!("dereference of nil pointer")),
+                            other => return Err(anyhow::anyhow!("cannot dereference {:?}", other)),
                         }
                     },
                     _ => {
@@ -357,11 +523,30 @@ impl Interpreter {
                         };
                         self.runtime.set_variable(var_name, new_val);
                     }
+                } else if name_lower == "new" {
+                    // New(p): allocate a heap slot and bind its id to p.
+                    match arguments.first() {
+                        Some(Expr::Variable(var_name)) => {
+                            let id = self.heap_alloc(Value::Nil);
+                            self.runtime.set_variable(var_name.clone(), Value::Pointer(id));
+                        }
+                        _ => return Err(anyhow::anyhow!("new requires a pointer variable")),
+                    }
+                } else if name_lower == "dispose" {
+                    // Dispose(p): release the heap slot and set p to nil.
+                    if let Some(Expr::Variable(var_name)) = arguments.first() {
+                        if let Some(Value::Pointer(id)) = self.runtime.get_variable_value(var_name) {
+                            self.heap.remove(&id);
+                        }
+                        self.runtime.set_variable(var_name.clone(), Value::Nil);
+                    } else {
+                        return Err(anyhow::anyhow!("dispose requires a pointer variable"));
+                    }
                 } else {
                     let args: Vec<Value> = arguments.iter()
                         .map(|arg| self.eval_expr(arg))
                         .collect::<Result<_>>()?;
-                    
+
                     self.call_procedure(name, &args)?;
                 }
             },
@@ -496,7 +681,7 @@ impl Interpreter {
             },
             Stmt::With { variable, statements } => {
                 let var_val = self.eval_expr(variable)?;
-                if let Value::Record { fields } | Value::Object { fields, .. } = var_val {
+                if let Value::Record { fields, .. } | Value::Object { fields, .. } = var_val {
                     self.scope_manager.enter_scope();
                     for (k, v) in fields {
                         self.runtime.set_variable(k.clone(), v.clone());
@@ -520,13 +705,7 @@ impl Interpreter {
     pub fn eval_expr(&mut self, expr: &Expr) -> Result<Value> {
         match expr {
             Expr::Literal(literal) => self.eval_literal(literal),
-            Expr::Variable(name) => {
-                if let Some(val) = self.runtime.get_variable_value(name) {
-                    Ok(val)
-                } else {
-                    Err(anyhow::anyhow!("Undefined variable: {}", name))
-                }
-            },
+            Expr::Variable(name) => self.eval_variable(name),
             Expr::BinaryOp { left, operator, right } => {
                 match operator.as_str() {
                     "and" => {
@@ -555,6 +734,10 @@ impl Interpreter {
                     _ => {
                         let left_val = self.eval_expr(left)?;
                         let right_val = self.eval_expr(right)?;
+                        // Operator overloading for record/object types.
+                        if let Some(impl_name) = self.try_operator_overload(operator, &left_val, &right_val) {
+                            return self.call_function(&impl_name, &[left_val, right_val]);
+                        }
                         match operator.as_str() {
                             "+" => self.add_values(&left_val, &right_val),
                             "-" => self.sub_values(&left_val, &right_val),
@@ -607,14 +790,129 @@ impl Interpreter {
                 Ok(Value::Set { elements: set })
             },
             Expr::FunctionCall { name, arguments } => {
+                // Inline pointer dereference-then-call is handled by __index__/dot logic elsewhere;
+                // closures stored in a variable are callable directly.
                 let args: Vec<Value> = arguments.iter()
                     .map(|arg| self.eval_expr(arg))
                     .collect::<Result<_>>()?;
                 
                 self.call_function(name, &args)
             },
+            Expr::AddressOf { expression } => {
+                let val = self.eval_expr(expression)?;
+                let id = self.heap_alloc(val);
+                Ok(Value::Pointer(id))
+            },
+            Expr::Dereference { expression } => {
+                let ptr = self.eval_expr(expression)?;
+                match ptr {
+                    Value::Pointer(id) => self.heap.get(&id).cloned().ok_or_else(|| anyhow::anyhow!("dangling pointer")),
+                    Value::Nil => Err(anyhow::anyhow!("dereference of nil pointer")),
+                    other => Err(anyhow::anyhow!("cannot dereference non-pointer value {:?}", other)),
+                }
+            },
+            Expr::TypeCast { target_type, expression } => self.eval_type_cast(target_type, expression),
+            Expr::SizeOf { type_or_expression } => {
+                // Best-effort: size in bytes of the evaluated value's kind.
+                let val = self.eval_expr(type_or_expression)?;
+                Ok(Value::Integer(Self::value_size(&val)))
+            },
+            Expr::Is { expression, type_name } => {
+                let val = self.eval_expr(expression)?;
+                let matches = match &val {
+                    Value::Object { class_name, .. } => self.class_is_a(class_name, type_name),
+                    _ => false,
+                };
+                Ok(Value::Boolean(matches))
+            },
+            Expr::As { expression, type_name } => {
+                let val = self.eval_expr(expression)?;
+                if matches!(&val, Value::Object { class_name, .. } if self.class_is_a(class_name, type_name)) {
+                    Ok(val)
+                } else {
+                    Err(anyhow::anyhow!("Invalid type cast to {}", type_name))
+                }
+            },
+            Expr::Inherited { .. } => Err(anyhow::anyhow!("inherited is only valid inside a method body")),
+            Expr::Lambda { params, body, return_type, .. } => {
+                // Capture the currently-visible variable environment.
+                let captured = self.runtime.all_scope_variables();
+                Ok(Value::Closure {
+                    params: params.iter().map(|p| (p.name.clone(), p.is_var)).collect(),
+                    body: (**body).clone(),
+                    is_function: return_type.is_some(),
+                    return_type_name: match return_type {
+                        Some(Type::Integer) | Some(Type::Simple(SimpleType::Integer)) => "integer".to_string(),
+                        Some(Type::Real) | Some(Type::Simple(SimpleType::Real)) => "real".to_string(),
+                        Some(Type::Boolean) | Some(Type::Simple(SimpleType::Boolean)) => "boolean".to_string(),
+                        Some(Type::Char) | Some(Type::Simple(SimpleType::Char)) => "char".to_string(),
+                        Some(Type::String) | Some(Type::Simple(SimpleType::String)) => "string".to_string(),
+                        _ => String::new(),
+                    },
+                    captured,
+                })
+            },
             _ => Err(anyhow::anyhow!("Unsupported expression type")),
         }
+    }
+
+    /// Compute a rough byte size for a runtime value (for `SizeOf`).
+    fn value_size(val: &Value) -> i64 {
+        match val {
+            Value::Integer(_) | Value::Pointer(_) | Value::Enum { .. } => 8,
+            Value::Real(_) => 8,
+            Value::Boolean(_) => 1,
+            Value::Char(_) => 1,
+            Value::String(s) => s.len() as i64,
+            Value::Array { elements, .. } => elements.iter().map(Self::value_size).sum(),
+            Value::Record { fields, .. } => fields.values().map(Self::value_size).sum(),
+            Value::Set { elements } => elements.len() as i64,
+            Value::Nil => 0,
+            Value::Object { fields, .. } => fields.values().map(Self::value_size).sum::<i64>() + 8,
+            Value::Closure { .. } => 0,
+        }
+    }
+
+    /// Walk the class inheritance chain to test `is`/`as` conformance.
+    fn class_is_a(&self, class_name: &str, target: &str) -> bool {
+        if class_name.eq_ignore_ascii_case(target) {
+            return true;
+        }
+        let mut current = class_name.to_lowercase();
+        while let Some(class) = self.classes.get(&current) {
+            match &class.parent {
+                Some(parent) => {
+                    if parent.eq_ignore_ascii_case(target) {
+                        return true;
+                    }
+                    current = parent.to_lowercase();
+                }
+                None => return false,
+            }
+        }
+        false
+    }
+
+    /// Evaluate a type cast expression.
+    fn eval_type_cast(&mut self, target_type: &Type, expression: &Expr) -> Result<Value> {
+        let val = self.eval_expr(expression)?;
+        Ok(match target_type {
+            Type::Integer | Type::Simple(SimpleType::Integer) => Value::Integer(val.as_integer()?),
+            Type::Real | Type::Simple(SimpleType::Real) => Value::Real(val.as_real()?),
+            Type::Boolean | Type::Simple(SimpleType::Boolean) => Value::Boolean(val.as_boolean()?),
+            Type::Char | Type::Simple(SimpleType::Char) => match val {
+                Value::Integer(i) => Value::Char(char::from_u32(i as u32).unwrap_or('\0')),
+                Value::String(s) => Value::Char(s.chars().next().unwrap_or('\0')),
+                other => other,
+            },
+            Type::String | Type::Simple(SimpleType::String) => match val {
+                Value::Integer(i) => Value::String(i.to_string()),
+                Value::Real(r) => Value::String(r.to_string()),
+                Value::Char(c) => Value::String(c.to_string()),
+                other => other,
+            },
+            _ => val,
+        })
     }
 
     /// Evaluate a literal value
@@ -633,6 +931,11 @@ impl Interpreter {
 
     /// Call a built-in or user function
     pub fn call_function(&mut self, name: &str, args: &[Value]) -> Result<Value> {
+        // If a variable of this name holds a closure, invoke it directly.
+        if let Some(Value::Closure { .. }) = self.runtime.get_variable_value(name) {
+            return self.call_closure(name, args);
+        }
+
         // Check built-in functions first
         if let Some((_, _, func)) = self.builtins.get_function(name) {
             return func(args);
@@ -723,6 +1026,74 @@ impl Interpreter {
             return Err(anyhow::anyhow!("Procedure {} returned a value", name));
         }
         Ok(())
+    }
+
+    /// Invoke a closure stored in variable `name`.
+    fn call_closure(&mut self, name: &str, args: &[Value]) -> Result<Value> {
+        let closure = match self.runtime.get_variable_value(name) {
+            Some(Value::Closure { .. }) => {
+                let c = self.runtime.get_variable_value(name).unwrap();
+                c
+            }
+            _ => return Err(anyhow::anyhow!("{} is not callable", name)),
+        };
+        let Value::Closure { params, body, is_function, return_type_name, captured } = closure else {
+            return Err(anyhow::anyhow!("{} is not callable", name));
+        };
+
+        if params.len() != args.len() {
+            return Err(anyhow::anyhow!(
+                "Closure expects {} arguments, got {}", params.len(), args.len()
+            ));
+        }
+
+        self.scope_manager.enter_scope();
+        self.runtime.enter_scope();
+        // Restore captured environment first so parameters shadow them.
+        for (k, v) in &captured {
+            self.runtime.set_variable(k.clone(), v.clone());
+        }
+        for ((pname, _), arg) in params.iter().zip(args.iter()) {
+            self.runtime.set_variable(pname.clone(), arg.clone());
+        }
+        if is_function {
+            let default = match return_type_name.as_str() {
+                "integer" => Value::Integer(0),
+                "boolean" => Value::Boolean(false),
+                "real" | "float" => Value::Real(0.0),
+                "char" => Value::Char('\0'),
+                "string" => Value::String(String::new()),
+                _ => Value::Nil,
+            };
+            // Pascal allows returning via either `Result` or the function/closure name.
+            self.runtime.set_variable("result".to_string(), default.clone());
+            self.runtime.set_variable(name.to_lowercase(), default);
+        }
+
+        let body_statements = body.statements.clone();
+        let body_result = self.execute_block_stmts(&body_statements);
+        let return_value = if is_function {
+            self.runtime
+                .get_variable_value("result")
+                .or_else(|| self.runtime.get_variable_value(&name.to_lowercase()))
+                .unwrap_or(Value::Nil)
+        } else {
+            Value::Nil
+        };
+
+        self.runtime.exit_scope();
+        self.scope_manager.exit_scope();
+
+        match body_result {
+            Ok(()) => Ok(return_value),
+            Err(e) => {
+                if let Some(early) = e.downcast_ref::<EarlyReturn>() {
+                    Ok(early.value.clone().unwrap_or(return_value))
+                } else {
+                    Err(e)
+                }
+            }
+        }
     }
 
     /// Execute multiple statements (for blocks)
@@ -935,6 +1306,8 @@ impl Interpreter {
             Value::Record { .. } => true,
             Value::Enum { .. } => true,
             Value::Set { elements } => !elements.is_empty(),
+            Value::Pointer(_) => true,
+            Value::Closure { .. } => true,
         }
     }
 

@@ -153,7 +153,10 @@ impl<'a> Parser<'a> {
                 while let Some(Token::Identifier(name)) = self.peek() {
                     let name = name.clone();
                     self.advance();
+                    let type_parameters = self.parse_type_parameters()?;
                     self.consume_or_skip(Token::Equal, &[Token::Var, Token::Begin]);
+
+                    self.generic_params = type_parameters.clone();
 
                     // Check if this is a class declaration
                     if self.check(Token::Class) {
@@ -167,9 +170,11 @@ impl<'a> Parser<'a> {
                             name,
                             type_definition: type_def,
                             visibility: FieldVisibility::Public,
+                            type_parameters,
                         });
                     }
 
+                    self.generic_params.clear();
                     self.consume_or_skip(Token::Semicolon, &[Token::Var, Token::Begin]);
                 }
             } else if self.check(Token::Var) {
@@ -254,6 +259,7 @@ impl<'a> Parser<'a> {
                     while let Some(Token::Identifier(name)) = self.peek() {
                         let name = name.clone();
                         self.advance();
+                        let type_parameters = self.parse_type_parameters()?;
                         self.consume_or_skip(
                             Token::Equal,
                             &[
@@ -264,14 +270,18 @@ impl<'a> Parser<'a> {
                             ],
                         );
 
+                        self.generic_params = type_parameters.clone();
+
                         if let Ok(type_def) = self.parse_type() {
                             types.push(TypeDecl {
                                 name,
                                 type_definition: type_def,
                                 visibility: FieldVisibility::Public,
+                                type_parameters,
                             });
                         }
 
+                        self.generic_params.clear();
                         self.consume_or_skip(
                             Token::Semicolon,
                             &[Token::Procedure, Token::Function, Token::Implementation],
@@ -494,19 +504,24 @@ impl<'a> Parser<'a> {
                     while let Some(Token::Identifier(name)) = self.peek() {
                         let name = name.clone();
                         self.advance();
+                        let type_parameters = self.parse_type_parameters()?;
                         self.consume_or_skip(
                             Token::Equal,
                             &[Token::Var, Token::Procedure, Token::Function, Token::Begin],
                         );
+
+                        self.generic_params = type_parameters.clone();
 
                         if let Ok(type_def) = self.parse_type() {
                             types.push(TypeDecl {
                                 name,
                                 type_definition: type_def,
                                 visibility: FieldVisibility::Private,
+                                type_parameters,
                             });
                         }
 
+                        self.generic_params.clear();
                         self.consume_or_skip(
                             Token::Semicolon,
                             &[Token::Procedure, Token::Function, Token::Begin],
@@ -1276,6 +1291,47 @@ impl<'a> Parser<'a> {
         Ok(params)
     }
 
+    /// Parse optional generic type parameters: <T, U> (returns empty vec if none)
+    fn parse_type_parameters(&mut self) -> ParseResult<Vec<String>> {
+        let mut params = Vec::new();
+        if self.check(Token::LessThan) {
+            self.advance();
+            loop {
+                if let Some(Token::Identifier(name)) = self.peek() {
+                    let name = name.clone();
+                    self.advance();
+                    params.push(name);
+                }
+                if self.check(Token::Comma) {
+                    self.advance();
+                } else {
+                    break;
+                }
+            }
+            self.consume_or_skip(Token::GreaterThan, &[Token::Equal, Token::Semicolon]);
+        }
+        Ok(params)
+    }
+
+    /// Parse generic type arguments: <Integer, String>
+    fn parse_type_arguments(&mut self) -> ParseResult<Vec<Type>> {
+        let mut args = Vec::new();
+        self.consume_or_skip(Token::LessThan, &[Token::Semicolon]);
+        loop {
+            if self.check(Token::GreaterThan) {
+                break;
+            }
+            args.push(self.parse_type()?);
+            if self.check(Token::Comma) {
+                self.advance();
+            } else {
+                break;
+            }
+        }
+        self.consume_or_skip(Token::GreaterThan, &[Token::Semicolon]);
+        Ok(args)
+    }
+
     /// Parse a type
     pub fn parse_type(&mut self) -> ParseResult<Type> {
         Ok(match self.peek() {
@@ -1392,6 +1448,11 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Type::Pointer(Box::new(self.parse_type()?))
             }
+            Some(Token::Caret) => {
+                // Pascal pointer-type syntax: ^Integer
+                self.advance();
+                Type::Pointer(Box::new(self.parse_type()?))
+            }
             Some(Token::Class) => {
                 // class type — delegate to parse_class_decl but we need a dummy name
                 // This is used when parsing: type TFoo = class ... end;
@@ -1449,9 +1510,24 @@ impl<'a> Parser<'a> {
             Some(Token::Identifier(name)) => {
                 let name = name.clone();
                 self.advance();
-                Type::Alias {
-                    name,
-                    target_type: Box::new(Type::Simple(SimpleType::Integer)),
+                if self.generic_params.contains(&name) {
+                    // Type parameter reference inside a generic type definition
+                    Type::Generic {
+                        name,
+                        constraints: vec![],
+                    }
+                } else if self.check(Token::LessThan) {
+                    // Generic type instantiation: Name<TypeArg, ...>
+                    let type_arguments = self.parse_type_arguments()?;
+                    Type::GenericInstance {
+                        base_type: name,
+                        type_arguments,
+                    }
+                } else {
+                    Type::Alias {
+                        name,
+                        target_type: Box::new(Type::Simple(SimpleType::Integer)),
+                    }
                 }
             }
             _ => Type::Simple(SimpleType::Integer), // Default

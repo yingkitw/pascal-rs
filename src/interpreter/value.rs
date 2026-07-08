@@ -51,6 +51,10 @@ pub enum Value {
     },
     Record {
         fields: HashMap<String, Value>,
+        /// Optional variant-record tag field name and active variant selector.
+        variant_tag: Option<String>,
+        /// Declared type name (for operator-overload dispatch and reflection).
+        type_name: Option<String>,
     },
     Enum {
         type_name: String,
@@ -58,6 +62,16 @@ pub enum Value {
     },
     Set {
         elements: std::collections::HashSet<i64>,
+    },
+    /// Pointer into the interpreter heap (by id). `Value::Nil` represents a nil pointer.
+    Pointer(usize),
+    /// Anonymous function / lambda with its captured environment.
+    Closure {
+        params: Vec<(String, bool)>,
+        body: crate::ast::Block,
+        is_function: bool,
+        return_type_name: String,
+        captured: Vec<(String, Value)>,
     },
 }
 
@@ -75,7 +89,7 @@ impl std::fmt::Display for Value {
                 let items: Vec<String> = elements.iter().map(|v| format!("{}", v)).collect();
                 write!(f, "({})", items.join(", "))
             }
-            Value::Record { fields } => {
+            Value::Record { fields, .. } => {
                 let items: Vec<String> = fields
                     .iter()
                     .map(|(k, v)| format!("{}: {}", k, v))
@@ -90,6 +104,8 @@ impl std::fmt::Display for Value {
                 items.sort();
                 write!(f, "[{}]", items.join(", "))
             }
+            Value::Pointer(id) => write!(f, "^{}", id),
+            Value::Closure { .. } => write!(f, "<closure>"),
         }
     }
 }
