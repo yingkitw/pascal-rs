@@ -134,6 +134,37 @@ impl UnitCodeGenerator {
         Ok(self.output.clone())
     }
 
+    /// Generate code for a complete program (wraps the program as a unit).
+    pub fn generate_program(&mut self, program: &Program) -> Result<String> {
+        let unit = Unit {
+            name: program.name.clone(),
+            uses: program.uses.clone(),
+            interface: crate::ast::UnitInterface {
+                uses: vec![],
+                types: vec![],
+                constants: vec![],
+                variables: vec![],
+                procedures: vec![],
+                functions: vec![],
+                classes: vec![],
+                interfaces: vec![],
+            },
+            implementation: crate::ast::UnitImplementation {
+                uses: vec![],
+                types: program.block.types.clone(),
+                constants: program.block.consts.clone(),
+                variables: program.block.vars.clone(),
+                procedures: program.block.procedures.clone(),
+                functions: program.block.functions.clone(),
+                classes: vec![],
+                interfaces: vec![],
+                initialization: Some(program.block.statements.clone()),
+                finalization: None,
+            },
+        };
+        self.generate_unit(&unit)
+    }
+
     /// Generate code for interface section
     fn generate_interface(&mut self, interface: &UnitInterface) -> Result<()> {
         writeln!(&mut self.output, "# Interface section")?;
@@ -157,6 +188,14 @@ impl UnitCodeGenerator {
     /// Generate code for implementation section
     fn generate_implementation(&mut self, implementation: &UnitImplementation) -> Result<()> {
         writeln!(&mut self.output, "# Implementation section")?;
+
+        // Allocate unit-level variables once, so all later statements share
+        // the same symbol table. Without this every variable defaulted to
+        // rbp-8 (the unwrap_or fallback in get_variable_offset).
+        self.reset_local_state();
+        for var in &implementation.variables {
+            self.allocate_local(var.name.clone(), var.variable_type.clone());
+        }
 
         // Generate functions
         for func in &implementation.functions {

@@ -169,3 +169,60 @@ fn test_codegen_multiple_functions() {
     // Note: Parser doesn't support function declarations yet
     // This test validates multiple arithmetic operations instead
 }
+
+#[test]
+fn test_codegen_distinct_variable_offsets() {
+    // Regression test: unit-level variables used to all share the same
+    // rbp-8 stack offset, clobbering each other. Each variable must now
+    // get a unique offset.
+    use pascal::UnitCodeGenerator;
+    use pascal::parser::Parser;
+
+    let source = r#"
+        program Test;
+        var
+            a, b, c, d, e: integer;
+        begin
+            a := 1;
+            b := 2;
+            c := 3;
+            d := 4;
+            e := 5;
+        end.
+    "#;
+
+    let mut parser = Parser::new(source);
+    let program = parser.parse_program().expect("parse should succeed");
+    let mut codegen = UnitCodeGenerator::new();
+    let asm = codegen
+        .generate_program(&program)
+        .expect("codegen should succeed");
+
+    // Collect every `mov [rbp - N], rax` offset for the variable stores
+    let store_offsets: Vec<i64> = asm
+        .lines()
+        .filter(|l| l.contains("Store "))
+        .filter_map(|l| {
+            let marker = "[rbp - ";
+            let start = l.find(marker)? + marker.len();
+            let rest = &l[start..];
+            let end = rest.find(']')?;
+            rest[..end].parse().ok()
+        })
+        .collect();
+
+    assert!(
+        store_offsets.len() >= 5,
+        "expected >=5 variable stores, got {} in asm:\n{}",
+        store_offsets.len(),
+        asm
+    );
+
+    let unique: std::collections::HashSet<i64> = store_offsets.iter().copied().collect();
+    assert_eq!(
+        unique.len(),
+        store_offsets.len(),
+        "variable offsets are not unique: {:?}",
+        store_offsets
+    );
+}
