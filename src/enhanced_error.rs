@@ -51,6 +51,7 @@ impl std::fmt::Display for SourceLocation {
 }
 
 /// Source manager for tracking file information
+#[derive(Default)]
 pub struct SourceManager {
     files: Vec<PathBuf>,
     file_contents: Vec<String>,
@@ -59,10 +60,7 @@ pub struct SourceManager {
 impl SourceManager {
     /// Create a new source manager
     pub fn new() -> Self {
-        Self {
-            files: Vec::new(),
-            file_contents: Vec::new(),
-        }
+        Self::default()
     }
 
     /// Add a source file to the manager

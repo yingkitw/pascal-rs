@@ -124,7 +124,7 @@ impl InterferenceGraph {
 
     /// Add a variable to the graph
     pub fn add_variable(&mut self, var: String, live_range: LiveRange) {
-        self.nodes.entry(var.clone()).or_insert_with(HashSet::new);
+        self.nodes.entry(var.clone()).or_default();
         self.live_ranges.insert(var, live_range);
     }
 
@@ -133,11 +133,11 @@ impl InterferenceGraph {
         if var1 != var2 {
             self.nodes
                 .entry(var1.to_string())
-                .or_insert_with(HashSet::new)
+                .or_default()
                 .insert(var2.to_string());
             self.nodes
                 .entry(var2.to_string())
-                .or_insert_with(HashSet::new)
+                .or_default()
                 .insert(var1.to_string());
         }
     }

@@ -377,8 +377,8 @@ impl Optimizer {
             }
 
             // Optimize push/pop pairs: push rax; pop rax -> nothing
-            if i + 1 < instructions.len() {
-                if inst.trim().starts_with("push") && instructions[i + 1].trim().starts_with("pop")
+            if i + 1 < instructions.len()
+                && inst.trim().starts_with("push") && instructions[i + 1].trim().starts_with("pop")
                 {
                     let push_reg = inst.trim().strip_prefix("push").unwrap().trim();
                     let pop_reg = instructions[i + 1]
@@ -391,7 +391,6 @@ impl Optimizer {
                         continue;
                     }
                 }
-            }
 
             // Optimize add rax, 0 -> nothing
             if inst.contains("add") && inst.contains(", 0") {

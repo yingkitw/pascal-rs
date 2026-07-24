@@ -72,7 +72,7 @@ fn main() {
     println!("   Cached modules: {}", loader.cached_modules().len());
     
     // Clone for thread
-    let loader_clone = loader.clone_for_thread();
+    let _loader_clone = loader.clone_for_thread();
     println!("   Cloned loader for thread (shares cache)");
     println!();
 

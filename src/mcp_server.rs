@@ -4,7 +4,7 @@
 
 use crate::{Module, ModuleLoader, ModuleResult, ParallelCompiler, ParallelConfig};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+
 
 /// MCP Server for Pascal compiler operations
 pub struct McpServer {

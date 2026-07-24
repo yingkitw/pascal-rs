@@ -5,7 +5,7 @@ use pascal::interpreter::Interpreter;
 
 fn run_program(program: &Program) -> Result<(), anyhow::Error> {
     let mut interp = Interpreter::new(false);
-    interp.run_program(program).map_err(|e| e.into())
+    interp.run_program(program)
 }
 
 #[test]

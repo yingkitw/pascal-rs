@@ -11,7 +11,8 @@ fn bench_interpreter_empty(c: &mut Criterion) {
     c.bench_function("interpreter_empty_program", |b| {
         b.iter(|| {
             let mut interp = Interpreter::new(false);
-            black_box(interp.run_program(&program).unwrap());
+            interp.run_program(&program).unwrap();
+            black_box(());
         });
     });
 }

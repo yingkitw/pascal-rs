@@ -1060,7 +1060,7 @@ impl UnitCodeGenerator {
 
     /// Add an import from another unit
     fn add_import(&mut self, unit_name: String) {
-        self.imports.entry(unit_name).or_insert_with(Vec::new);
+        self.imports.entry(unit_name).or_default();
     }
 
     /// Get exported symbols

@@ -163,11 +163,7 @@ impl<'a> Parser<'a> {
             | Some(Token::CharLiteral(_))
             | Some(Token::True)
             | Some(Token::False) => {
-                if let Some(lit) = self.parse_literal()? {
-                    Some(Expr::Literal(lit))
-                } else {
-                    None
-                }
+                self.parse_literal()?.map(Expr::Literal)
             }
             Some(Token::LeftParen) => {
                 self.advance();

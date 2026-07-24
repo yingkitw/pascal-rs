@@ -243,22 +243,19 @@ fn inline_functions_in_block(block: &mut Block, inliner: &mut FunctionInliner) -
                 target,
                 value: Expr::FunctionCall { name, arguments },
             } if functions.contains_key(&name.to_lowercase()) => {
-                if let Some(func) = functions.get(&name.to_lowercase()) {
-                    if inliner.should_inline(func) {
+                if let Some(func) = functions.get(&name.to_lowercase())
+                    && inliner.should_inline(func) {
                         let inlined = inliner.inline_call(func, arguments);
-                        if let Expr::Variable(var) = target {
-                            if let Some(last) = inlined.last() {
-                                if let Stmt::Assignment { value, .. } = last {
+                        if let Expr::Variable(var) = target
+                            && let Some(last) = inlined.last()
+                                && let Stmt::Assignment { value, .. } = last {
                                     *stmt = Stmt::Assignment {
                                         target: Expr::Variable(var.clone()),
                                         value: value.clone(),
                                     };
                                     *mods += 1;
                                 }
-                            }
-                        }
                     }
-                }
             }
             Stmt::Block(b) => inline_block(b, functions, inliner, mods),
             Stmt::If {
@@ -302,6 +299,7 @@ fn inline_functions_in_block(block: &mut Block, inliner: &mut FunctionInliner) -
 
 macro_rules! define_pass {
     ($struct_name:ident, $pass_name:literal, $level:expr, $desc:literal) => {
+        #[derive(Default)]
         pub struct $struct_name;
 
         impl $struct_name {

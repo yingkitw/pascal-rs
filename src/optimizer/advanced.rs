@@ -238,11 +238,10 @@ impl TailCallOptimizer {
     pub fn optimize_tail_call(&mut self, func: &FunctionDecl) -> FunctionDecl {
         let optimized_func = func.clone();
 
-        if let Some(last_stmt) = func.block.statements.last() {
-            if self.is_tail_call(last_stmt, &func.name) {
+        if let Some(last_stmt) = func.block.statements.last()
+            && self.is_tail_call(last_stmt, &func.name) {
                 self.optimized_count += 1;
             }
-        }
 
         optimized_func
     }
@@ -275,9 +274,9 @@ impl StrengthReducer {
                 let right_opt = self.optimize(right);
 
                 // x * 2^n -> x << n
-                if operator == "*" {
-                    if let Expr::Literal(Literal::Integer(n)) = &right_opt {
-                        if *n > 0 && (*n & (*n - 1)) == 0 {
+                if operator == "*"
+                    && let Expr::Literal(Literal::Integer(n)) = &right_opt
+                        && *n > 0 && (*n & (*n - 1)) == 0 {
                             let shift = (*n as f64).log2() as i64;
                             return Expr::BinaryOp {
                                 operator: "shl".to_string(),
@@ -285,13 +284,11 @@ impl StrengthReducer {
                                 right: Box::new(Expr::Literal(Literal::Integer(shift))),
                             };
                         }
-                    }
-                }
 
                 // x / 2^n -> x >> n
-                if operator == "div" {
-                    if let Expr::Literal(Literal::Integer(n)) = &right_opt {
-                        if *n > 0 && (*n & (*n - 1)) == 0 {
+                if operator == "div"
+                    && let Expr::Literal(Literal::Integer(n)) = &right_opt
+                        && *n > 0 && (*n & (*n - 1)) == 0 {
                             let shift = (*n as f64).log2() as i64;
                             return Expr::BinaryOp {
                                 operator: "shr".to_string(),
@@ -299,8 +296,6 @@ impl StrengthReducer {
                                 right: Box::new(Expr::Literal(Literal::Integer(shift))),
                             };
                         }
-                    }
-                }
 
                 Expr::BinaryOp {
                     operator: operator.clone(),
@@ -338,14 +333,14 @@ impl AdvancedOptimizer {
     /// Run all optimizations on a statement
     pub fn optimize_stmt(&mut self, stmt: &Stmt) -> Stmt {
         // Apply optimizations in order
-        let stmt = self.loop_opt.optimize_loop(stmt);
-        stmt
+        
+        self.loop_opt.optimize_loop(stmt)
     }
 
     /// Run all optimizations on an expression
     pub fn optimize_expr(&mut self, expr: &Expr) -> Expr {
-        let expr = self.strength_reducer.optimize(expr);
-        expr
+        
+        self.strength_reducer.optimize(expr)
     }
 
     /// Get optimization statistics

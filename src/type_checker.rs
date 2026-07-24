@@ -200,7 +200,7 @@ mod tests {
     #[test]
     fn test_literal_types() {
         let mut table = LocalSymbolTable::new();
-        let mut checker = TypeChecker::new(&mut table);
+        let checker = TypeChecker::new(&mut table);
 
         assert_eq!(checker.literal_type(&Literal::Integer(42)), Type::Integer);
         assert_eq!(checker.literal_type(&Literal::Boolean(true)), Type::Boolean);

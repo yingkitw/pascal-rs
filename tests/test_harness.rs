@@ -7,7 +7,6 @@
 //! - Integration validation
 //! - Performance analysis
 
-use std::path::Path;
 use std::time::Instant;
 
 /// Test configuration for different validation scenarios
@@ -458,7 +457,7 @@ mod unit_tests {
 
 mod error_handling_tests {
     pub fn test_enhanced_error_reporting() -> bool {
-        use pascal::enhanced_error::{ErrorReporter, SourceLocation, ErrorSuggestion};
+        use pascal::enhanced_error::{ErrorReporter, SourceLocation};
         
         let mut reporter = ErrorReporter::new();
         let location = SourceLocation::new(0, 1, 1, 0, 0);
@@ -567,7 +566,7 @@ pub fn generate_test_report(results: &[TestResults]) -> String {
             report.push_str("\n✅ ALL TESTS PASSED\n");
         }
         
-        report.push_str("\n");
+        report.push('\n');
     }
     
     // Overall summary

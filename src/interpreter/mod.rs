@@ -120,7 +120,7 @@ impl Interpreter {
 
     fn write_field_path(root: &mut Value, path: &str, value: Value) {
         let mut segments: Vec<&str> = path.split('.').collect();
-        fn drill<'a>(val: &'a mut Value, segs: &mut Vec<&str>, value: Value) {
+        fn drill(val: &mut Value, segs: &mut Vec<&str>, value: Value) {
             if segs.is_empty() {
                 return;
             }
@@ -235,11 +235,10 @@ impl Interpreter {
                 // Stamp the declared type name onto records so operator overloads
                 // and reflection can dispatch on the named type.
                 let mut value = self.default_value_for_type(target_type)?;
-                if let Value::Record { type_name, .. } = &mut value {
-                    if type_name.is_none() {
+                if let Value::Record { type_name, .. } = &mut value
+                    && type_name.is_none() {
                         *type_name = Some(name.clone());
                     }
-                }
                 value
             }
             Type::Enum { values } => {
@@ -553,7 +552,7 @@ impl Interpreter {
             Stmt::Block(block) => {
                 self.scope_manager.enter_scope();
                 for stmt in &block.statements {
-                    self.execute_stmt(&stmt)?;
+                    self.execute_stmt(stmt)?;
                 }
                 self.scope_manager.exit_scope();
             },
@@ -561,11 +560,11 @@ impl Interpreter {
                 let cond_val = self.eval_expr(condition)?;
                 if self.is_truthy(&cond_val) {
                     for stmt in then_branch {
-                        self.execute_stmt(&stmt)?;
+                        self.execute_stmt(stmt)?;
                     }
                 } else if let Some(else_branch) = else_branch {
                     for stmt in else_branch {
-                        self.execute_stmt(&stmt)?;
+                        self.execute_stmt(stmt)?;
                     }
                 }
             },
@@ -634,13 +633,12 @@ impl Interpreter {
                         break;
                     }
                 }
-                if !matched {
-                    if let Some(else_stmts) = else_branch {
+                if !matched
+                    && let Some(else_stmts) = else_branch {
                         for stmt in else_stmts {
                             self.execute_stmt(stmt)?;
                         }
                     }
-                }
             },
             Stmt::Try { try_block, except_clauses, finally_block } => {
                 let result = (|| {
@@ -1031,8 +1029,8 @@ impl Interpreter {
     fn call_closure(&mut self, name: &str, args: &[Value]) -> Result<Value> {
         let closure = match self.runtime.get_variable_value(name) {
             Some(Value::Closure { .. }) => {
-                let c = self.runtime.get_variable_value(name).unwrap();
-                c
+                
+                self.runtime.get_variable_value(name).unwrap()
             }
             _ => return Err(anyhow::anyhow!("{} is not callable", name)),
         };

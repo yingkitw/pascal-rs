@@ -93,7 +93,7 @@ fn debug_prompt_with_watch(interp: &Interpreter, watch_expressions: &[String]) {
                 let _ = writeln!(out, "  vars      - print variables");
             }
             _ => {
-                if let Some(val) = interp.get_variable_value(&line.trim()) {
+                if let Some(val) = interp.get_variable_value(line.trim()) {
                     let _ = writeln!(out, "{} = {:?}", line.trim(), val);
                 } else if !cmd.is_empty() {
                     let _ = writeln!(out, "Unknown command. Try 'help'.");
@@ -143,7 +143,7 @@ pub fn debug_prompt(interp: &Interpreter, session: &DebugSession) {
             }
             _ => {
                 // Try as variable name to print
-                if let Some(val) = interp.get_variable_value(&line.trim()) {
+                if let Some(val) = interp.get_variable_value(line.trim()) {
                     let _ = writeln!(out, "{} = {:?}", line.trim(), val);
                 } else if !cmd.is_empty() {
                     let _ = writeln!(out, "Unknown command. Try 'help'.");

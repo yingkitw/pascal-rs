@@ -56,8 +56,10 @@ fn heap_kind(value: &Value) -> Option<&'static str> {
 
 /// Analyze interpreter state after execution for unreleased heap values.
 pub fn analyze_interpreter(interp: &Interpreter) -> LeakReport {
-    let mut report = LeakReport::default();
-    report.scope_depth = interp.scope_count();
+    let mut report = LeakReport {
+        scope_depth: interp.scope_count(),
+        ..Default::default()
+    };
 
     for (name, value) in interp.all_scope_variables() {
         report.total_variables += 1;
@@ -78,7 +80,7 @@ pub fn run_with_leak_check(
     let mut interp = Interpreter::new(verbose);
     let run_result = interp.run_program(program);
     let report = analyze_interpreter(&interp);
-    Ok((report, run_result.map_err(|e| e.into())))
+    Ok((report, run_result))
 }
 
 #[cfg(test)]

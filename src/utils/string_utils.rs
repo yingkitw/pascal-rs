@@ -156,7 +156,7 @@ pub fn indent_lines(s: &str, indent: &str) -> String {
 
 /// Split a string into lines, handling both LF and CRLF
 pub fn split_lines(s: &str) -> Vec<&str> {
-    s.split(|c| c == '\n' || c == '\r')
+    s.split(['\n', '\r'])
         .filter(|line| !line.is_empty())
         .collect()
 }

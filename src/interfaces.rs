@@ -57,11 +57,10 @@ fn class_has_method(
     {
         return true;
     }
-    if let Some(parent_name) = &class.parent {
-        if let Some(parent) = classes.get(&parent_name.to_lowercase()) {
+    if let Some(parent_name) = &class.parent
+        && let Some(parent) = classes.get(&parent_name.to_lowercase()) {
             return class_has_method(parent, method_name, classes);
         }
-    }
     false
 }
 

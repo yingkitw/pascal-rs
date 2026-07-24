@@ -1,6 +1,6 @@
 //! Package dependency resolution: path, git, registry, and dependency graphs.
 
-use crate::build_system::{DependencySpec, DetailedDependency, Manifest};
+use crate::build_system::{DependencySpec, Manifest};
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -53,8 +53,8 @@ impl DependencyResolver {
 
     /// Resolve all dependencies; returns search paths for unit loading.
     pub fn resolve_all(&self, manifest: &Manifest) -> Result<Vec<ResolvedDependency>> {
-        std::fs::create_dir_all(&self.cache_dir.join("deps"))?;
-        std::fs::create_dir_all(&self.cache_dir.join("registry"))?;
+        std::fs::create_dir_all(self.cache_dir.join("deps"))?;
+        std::fs::create_dir_all(self.cache_dir.join("registry"))?;
 
         let mut resolved = Vec::new();
         for (name, spec) in &manifest.dependencies {
@@ -288,10 +288,10 @@ fn spec_source_label(spec: &DependencySpec) -> String {
     match spec {
         DependencySpec::Version(v) => format!("registry:{v}"),
         DependencySpec::Detailed(d) => {
-            if d.path.is_some() {
-                format!("path:{}", d.path.as_ref().unwrap())
-            } else if d.git.is_some() {
-                format!("git:{}", d.git.as_ref().unwrap())
+            if let Some(p) = &d.path {
+                format!("path:{p}")
+            } else if let Some(g) = &d.git {
+                format!("git:{g}")
             } else {
                 format!("registry:{}", d.version.as_deref().unwrap_or("*"))
             }
@@ -349,7 +349,7 @@ pub struct CompatibilityEntry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::build_system::Package;
+    use crate::build_system::{DetailedDependency, Package};
 
     #[test]
     fn test_version_satisfies() {

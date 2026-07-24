@@ -5,10 +5,14 @@ use anyhow::Result;
 use std::collections::HashMap;
 use rand::Rng;
 
+/// Built-in function implementation
+pub type BuiltinFn = Box<dyn Fn(&[Value]) -> Result<Value>>;
+
 /// Built-in function signature: (name, arity, function pointer)
-pub type BuiltinFunction = (String, usize, Box<dyn Fn(&[Value]) -> Result<Value>>);
+pub type BuiltinFunction = (String, usize, BuiltinFn);
 
 /// Built-in function registry
+#[derive(Default)]
 pub struct BuiltinRegistry {
     functions: HashMap<String, BuiltinFunction>,
 }
@@ -16,13 +20,11 @@ pub struct BuiltinRegistry {
 impl BuiltinRegistry {
     /// Create a new built-in function registry
     pub fn new() -> Self {
-        Self {
-            functions: HashMap::new(),
-        }
+        Self::default()
     }
 
     /// Register a built-in function
-    pub fn register(&mut self, name: String, arity: usize, func: Box<dyn Fn(&[Value]) -> Result<Value>>) {
+    pub fn register(&mut self, name: String, arity: usize, func: BuiltinFn) {
         self.functions.insert(name.clone(), (name, arity, func));
     }
 
@@ -57,133 +59,133 @@ impl Builtins {
         registry.register(
             "write".to_string(),
             1,
-            Box::new(|args| Self::write(args)),
+            Box::new(Self::write),
         );
         
         registry.register(
             "writeln".to_string(),
             1,
-            Box::new(|args| Self::writeln(args)),
+            Box::new(Self::writeln),
         );
         
         registry.register(
             "read".to_string(),
             1,
-            Box::new(|args| Self::read(args)),
+            Box::new(Self::read),
         );
         
         registry.register(
             "readln".to_string(),
             1,
-            Box::new(|args| Self::readln(args)),
+            Box::new(Self::readln),
         );
 
         // Mathematical functions
         registry.register(
             "abs".to_string(),
             1,
-            Box::new(|args| Self::abs(args)),
+            Box::new(Self::abs),
         );
         
         registry.register(
             "sqrt".to_string(),
             1,
-            Box::new(|args| Self::sqrt(args)),
+            Box::new(Self::sqrt),
         );
         
         registry.register(
             "sin".to_string(),
             1,
-            Box::new(|args| Self::sin(args)),
+            Box::new(Self::sin),
         );
         
         registry.register(
             "cos".to_string(),
             1,
-            Box::new(|args| Self::cos(args)),
+            Box::new(Self::cos),
         );
         
         registry.register(
             "exp".to_string(),
             1,
-            Box::new(|args| Self::exp(args)),
+            Box::new(Self::exp),
         );
         
         registry.register(
             "ln".to_string(),
             1,
-            Box::new(|args| Self::ln(args)),
+            Box::new(Self::ln),
         );
 
         // String functions
         registry.register(
             "length".to_string(),
             1,
-            Box::new(|args| Self::length(args)),
+            Box::new(Self::length),
         );
         
         registry.register(
             "copy".to_string(),
             3,
-            Box::new(|args| Self::copy_str(args)),
+            Box::new(Self::copy_str),
         );
         
         registry.register(
             "pos".to_string(),
             2,
-            Box::new(|args| Self::pos(args)),
+            Box::new(Self::pos),
         );
 
         // Type conversion functions
         registry.register(
             "str".to_string(),
             1,
-            Box::new(|args| Self::str_fn(args)),
+            Box::new(Self::str_fn),
         );
         
         registry.register(
             "ord".to_string(),
             1,
-            Box::new(|args| Self::ord_fn(args)),
+            Box::new(Self::ord_fn),
         );
         
         registry.register(
             "chr".to_string(),
             1,
-            Box::new(|args| Self::chr_fn(args)),
+            Box::new(Self::chr_fn),
         );
 
         // Array functions
         registry.register(
             "low".to_string(),
             1,
-            Box::new(|args| Self::low(args)),
+            Box::new(Self::low),
         );
         
         registry.register(
             "high".to_string(),
             1,
-            Box::new(|args| Self::high(args)),
+            Box::new(Self::high),
         );
 
         // Internal indexing function (used by parser for arr[i] expressions)
         registry.register(
             "__index__".to_string(),
             2,
-            Box::new(|args| Self::__index__(args)),
+            Box::new(Self::__index__),
         );
 
         // Random functions
         registry.register(
             "random".to_string(),
             0,
-            Box::new(|args| Self::random(args)),
+            Box::new(Self::random),
         );
         
         registry.register(
             "randomize".to_string(),
             0,
-            Box::new(|args| Self::randomize(args)),
+            Box::new(Self::randomize),
         );
 
         // Reflection
@@ -194,9 +196,7 @@ impl Builtins {
                 if args.is_empty() {
                     return Err(anyhow::anyhow!("TypeName expects one argument"));
                 }
-                Ok(Value::String(
-                    crate::reflection::type_name(&args[0]).to_string(),
-                ))
+                Ok(Value::String(crate::reflection::type_name(&args[0])))
             }),
         );
     }
@@ -367,7 +367,7 @@ impl Builtins {
 
     fn chr_fn(args: &[Value]) -> Result<Value> {
         match args[0] {
-            Value::Integer(i) if i >= 0 && i <= 255 => Ok(Value::Char(i as u8 as char)),
+            Value::Integer(i) if (0..=255).contains(&i) => Ok(Value::Char(i as u8 as char)),
             _ => Err(anyhow::anyhow!("chr: integer between 0-255 expected")),
         }
     }
@@ -459,7 +459,7 @@ mod tests {
 
     #[test]
     fn test_builtins() {
-        let mut registry = create_default_registry();
+        let registry = create_default_registry();
         
         // Test abs function
         if let Some((_, _, abs_func)) = registry.get_function("abs") {

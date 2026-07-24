@@ -24,13 +24,11 @@ impl IncrementalCache {
 
     pub fn load(project_root: &Path) -> Self {
         let path = Self::path(project_root);
-        if path.exists() {
-            if let Ok(content) = std::fs::read_to_string(&path) {
-                if let Ok(cache) = serde_json::from_str(&content) {
+        if path.exists()
+            && let Ok(content) = std::fs::read_to_string(&path)
+                && let Ok(cache) = serde_json::from_str(&content) {
                     return cache;
                 }
-            }
-        }
         Self::default()
     }
 

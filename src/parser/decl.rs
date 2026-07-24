@@ -95,24 +95,19 @@ impl<'a> Parser<'a> {
         if self.check(Token::Uses) {
             self.advance();
 
-            loop {
-                if let Some(Token::Identifier(name)) = self.current_token.take() {
-                    uses.push(name);
-                    self.advance();
+            while let Some(Token::Identifier(name)) = self.current_token.take() {
+                uses.push(name);
+                self.advance();
 
-                    match self.peek() {
-                        Some(Token::Comma) => {
-                            self.advance();
-                            continue;
-                        }
-                        Some(Token::Semicolon) => {
-                            self.advance();
-                            break;
-                        }
-                        _ => break,
+                match self.peek() {
+                    Some(Token::Comma) => {
+                        self.advance();
                     }
-                } else {
-                    break;
+                    Some(Token::Semicolon) => {
+                        self.advance();
+                        break;
+                    }
+                    _ => break,
                 }
             }
         }

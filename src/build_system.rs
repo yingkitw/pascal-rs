@@ -318,12 +318,11 @@ impl BuildSystem {
         let manifest_path = project_root.join("pascal.toml");
         let mut manifest = Manifest::load(&manifest_path)?;
         // Apply profile overrides from PASCAL_PROFILE env (e.g. dev, release)
-        if let Ok(profile_name) = std::env::var("PASCAL_PROFILE") {
-            if let Some(overrides) = manifest.profile.get(&profile_name) {
+        if let Ok(profile_name) = std::env::var("PASCAL_PROFILE")
+            && let Some(overrides) = manifest.profile.get(&profile_name) {
                 overrides.merge_into(&mut manifest.build);
                 manifest.build.active_profile = Some(profile_name);
             }
-        }
         Ok(Self {
             project_root: project_root.to_path_buf(),
             manifest,
@@ -524,8 +523,8 @@ end."#,
             match parser.parse_program() {
                 Ok(mut program) => {
                     let opt_level = self.manifest.build.optimization;
-                    if opt_level > 0 {
-                        if let Err(e) =
+                    if opt_level > 0
+                        && let Err(e) =
                             crate::optimizer::optimize_program(&mut program, opt_level)
                         {
                             if !quiet {
@@ -536,7 +535,6 @@ end."#,
                             compiled += 1;
                             continue;
                         }
-                    }
 
                     // Run through interpreter to validate
                     let mut interp = crate::interpreter::Interpreter::new(false);
@@ -632,16 +630,17 @@ end."#,
                 .map_err(|e| anyhow!("Runtime error: {}", e))
         };
 
-        if let Some(_out) = profile_output {
+        if let Some(out) = profile_output {
             #[cfg(feature = "profile")]
             {
-                crate::profile::run_profiled(out, run)??;
+                crate::profile::run_profiled(&out, run)??;
             }
             #[cfg(not(feature = "profile"))]
             {
                 eprintln!(
-                    "{} Use `cargo build --features profile` to enable profiling",
-                    colored::Colorize::yellow("Warning:")
+                    "{} Use `cargo build --features profile` to enable profiling (output: {})",
+                    colored::Colorize::yellow("Warning:"),
+                    out.display()
                 );
                 run()?;
             }
@@ -749,10 +748,10 @@ end."#,
                 DependencySpec::Version(v) => (v.clone(), "registry".to_string()),
                 DependencySpec::Detailed(d) => {
                     let v = d.version.clone().unwrap_or_else(|| "*".to_string());
-                    let s = if d.path.is_some() {
-                        format!("path:{}", d.path.as_ref().unwrap())
-                    } else if d.git.is_some() {
-                        format!("git:{}", d.git.as_ref().unwrap())
+                    let s = if let Some(p) = &d.path {
+                        format!("path:{p}")
+                    } else if let Some(g) = &d.git {
+                        format!("git:{g}")
                     } else {
                         "registry".to_string()
                     };

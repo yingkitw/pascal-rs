@@ -181,11 +181,10 @@ impl ScopeManager {
     /// Pop the current stack frame
     pub fn pop_frame(&mut self) -> Option<StackFrame> {
         let frame = self.call_stack.pop();
-        if let Some(ref f) = frame {
-            if self.debug_mode {
+        if let Some(ref f) = frame
+            && self.debug_mode {
                 eprintln!("[call] Exited frame: {}", f.name);
             }
-        }
         frame
     }
 

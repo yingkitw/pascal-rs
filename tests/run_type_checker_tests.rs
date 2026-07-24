@@ -6,7 +6,7 @@ use pascal::parser::Parser;
 // Helper to compile and type check a program
 fn type_check_program(source: &str) -> Result<(), String> {
     let mut parser = Parser::new(source);
-    let program = parser.parse_program().map_err(|e| format!("Parse error: {:?}", e))?;
+    let _program = parser.parse_program().map_err(|e| format!("Parse error: {:?}", e))?;
     // Type checking would go here if we had a separate type checker module
     // For now, we just verify parsing works
     Ok(())

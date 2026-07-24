@@ -2,16 +2,22 @@
 
 use crate::lexer::LexerError;
 
+/// A token with its byte range: start offset, token, end offset.
+pub type SpannedToken<T> = (usize, T, usize);
+
+/// A stream of spanned tokens.
+pub type SpannedTokenResult<T> = Option<Result<SpannedToken<T>, LexerError>>;
+
 /// Core lexer capability trait
 pub trait LexerCapability {
     /// Token type produced by this lexer
     type Token;
 
     /// Get the next token from the input
-    fn next_token(&mut self) -> Option<Result<(usize, Self::Token, usize), LexerError>>;
+    fn next_token(&mut self) -> SpannedTokenResult<Self::Token>;
 
     /// Peek at the next token without consuming it
-    fn peek_token(&mut self) -> Option<Result<(usize, Self::Token, usize), LexerError>>;
+    fn peek_token(&mut self) -> SpannedTokenResult<Self::Token>;
 
     /// Get the current position in the input
     fn position(&self) -> std::ops::Range<usize>;
@@ -50,7 +56,7 @@ pub trait TokenStream {
     /// Get iterator over tokens
     fn token_iter(
         &mut self,
-    ) -> Box<dyn Iterator<Item = Result<(usize, Self::Token, usize), LexerError>> + '_>;
+    ) -> Box<dyn Iterator<Item = Result<SpannedToken<Self::Token>, LexerError>> + '_>;
 
     /// Reset the stream to beginning
     fn reset(&mut self);

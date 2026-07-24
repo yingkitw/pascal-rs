@@ -323,6 +323,12 @@ pub struct OptimizationRegistry {
     pass_factories: HashMap<String, fn() -> Box<dyn OptimizationPass>>,
 }
 
+impl Default for OptimizationRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OptimizationRegistry {
     pub fn new() -> Self {
         Self {

@@ -22,8 +22,8 @@ impl<'a> Parser<'a> {
                 self.advance();
                 let args = if self.check(Token::LeftParen) {
                     self.advance();
-                    let a = self.parse_argument_list()?;
-                    a
+                    
+                    self.parse_argument_list()?
                 } else {
                     vec![]
                 };

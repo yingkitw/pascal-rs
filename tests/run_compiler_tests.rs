@@ -2,7 +2,6 @@
 //! Tests code generation and assembly output
 
 use pascal::parser::Parser;
-use pascal::UnitCodeGenerator;
 
 // Helper to generate code
 fn generate_code(source: &str) -> Result<String, String> {

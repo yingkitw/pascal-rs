@@ -63,6 +63,7 @@ impl UserFunction {
 }
 
 /// Function registry for user-defined functions and procedures
+#[derive(Default)]
 pub struct FunctionRegistry {
     functions: HashMap<String, UserFunction>,
 }
@@ -70,9 +71,7 @@ pub struct FunctionRegistry {
 impl FunctionRegistry {
     /// Create a new function registry
     pub fn new() -> Self {
-        Self {
-            functions: HashMap::new(),
-        }
+        Self::default()
     }
 
     /// Register a user-defined function
@@ -158,7 +157,7 @@ impl FunctionConverter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::{FunctionDecl, Parameter, SimpleType, Type, ProcedureDecl, Statement, Expression, Expr, FieldVisibility};
+    use crate::ast::{FunctionDecl, Parameter, SimpleType, Type, FieldVisibility};
 
     #[test]
     fn test_user_function_creation() {
@@ -239,7 +238,7 @@ mod tests {
             name: "test_func".to_string(),
             parameters: params,
             return_type: Type::Simple(SimpleType::Integer),
-            block: block,
+            block,
             visibility: FieldVisibility::Public,
             is_external: false,
             external_name: None,

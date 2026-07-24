@@ -136,8 +136,7 @@ impl OptimizedScope {
     /// Get memory usage estimate
     pub fn memory_usage(&self) -> usize {
         // Rough estimate: string names + symbol data
-        self.symbols.iter()
-            .map(|(name, _)| name.len() * std::mem::size_of::<u8>())
+        self.symbols.keys().map(|name| name.len() * std::mem::size_of::<u8>())
             .sum::<usize>() + self.symbol_count * std::mem::size_of::<Symbol>()
     }
 }
@@ -178,12 +177,11 @@ impl SymbolLRUCache {
     /// Put symbol into cache, evicting LRU if necessary
     pub fn put(&mut self, name: String, scope_id: usize, symbol: Rc<Symbol>) {
         // Evict LRU if cache is full
-        if self.cache.len() >= self.capacity {
-            if let Some(lru_name) = self.access_order.first() {
+        if self.cache.len() >= self.capacity
+            && let Some(lru_name) = self.access_order.first() {
                 self.cache.remove(lru_name);
                 self.access_order.remove(0);
             }
-        }
 
         self.cache.insert(name.clone(), (scope_id, symbol));
         self.access_order.push(name);
@@ -224,7 +222,7 @@ pub struct OptimizedSymbolTable {
 }
 
 /// Symbol access statistics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SymbolStatistics {
     total_lookups: u64,
     cache_hits: u64,
@@ -236,13 +234,7 @@ pub struct SymbolStatistics {
 impl SymbolStatistics {
     /// Create new statistics
     pub fn new() -> Self {
-        Self {
-            total_lookups: 0,
-            cache_hits: 0,
-            cache_misses: 0,
-            scope_hits: 0,
-            scope_misses: 0,
-        }
+        Self::default()
     }
 
     /// Record a cache hit
@@ -328,7 +320,7 @@ impl OptimizedSymbolTable {
         // Clear cache entries from exited scope
         self.cache_clear_scope(self.current_scope);
 
-        if let Some(_) = self.scopes[self.current_scope].parent {
+        if self.scopes[self.current_scope].parent.is_some() {
             let parent_scope = self.scopes[self.current_scope].parent.unwrap();
             
             // Remove the current scope from the vector
@@ -498,11 +490,10 @@ impl OptimizedSymbolTable {
 
     /// Look up a function signature with caching
     pub fn lookup_function(&mut self, name: &str) -> Option<FunctionSignature> {
-        if let Some(symbol) = self.lookup_symbol(name) {
-            if let Some(ref sig) = symbol.function_signature {
+        if let Some(symbol) = self.lookup_symbol(name)
+            && let Some(ref sig) = symbol.function_signature {
                 return Some(sig.clone());
             }
-        }
         None
     }
 

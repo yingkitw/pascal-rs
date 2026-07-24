@@ -9,7 +9,7 @@ use std::path::PathBuf;
 #[derive(Parser)]
 #[command(name = "pascal")]
 #[command(about = "Pascal - A production-ready optimizing Pascal compiler and package manager")]
-#[command(version = "0.1.2")]
+#[command(version)]
 #[command(author = "Pascal Team")]
 struct Cli {
     #[command(subcommand)]
@@ -398,9 +398,9 @@ fn main() -> Result<()> {
                     Ok(())
                 }
             } else if let Some(file) = input {
-                run_file(file, verbose && !quiet, profile.then(|| profile_output), leak_check)
+                run_file(file, verbose && !quiet, profile.then_some(profile_output), leak_check)
             } else {
-                open_project(verbose && !quiet)?.run(quiet, profile.then(|| profile_output))
+                open_project(verbose && !quiet)?.run(quiet, profile.then_some(profile_output))
             }
         }
 
@@ -812,10 +812,10 @@ fn run_program_impl(
         }
     };
 
-    if let Some(_out) = profile_output {
+    if let Some(out) = profile_output {
         #[cfg(feature = "profile")]
         {
-            pascal::profile::run_profiled(out, run)?;
+            pascal::profile::run_profiled(&out, run)?;
             if verbose {
                 println!(
                     "{} Profile written to {}",
@@ -827,8 +827,9 @@ fn run_program_impl(
         #[cfg(not(feature = "profile"))]
         {
             eprintln!(
-                "{} Use `cargo build --features profile` to enable profiling",
-                "Warning:".yellow().bold()
+                "{} Use `cargo build --features profile` to enable profiling (output: {})",
+                "Warning:".yellow().bold(),
+                out.display()
             );
             run();
         }

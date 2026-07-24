@@ -76,30 +76,45 @@ impl ModuleLoader {
 
     /// Check if a unit is in the cache
     pub fn is_cached(&self, unit_name: &str) -> bool {
-        self.cache.read().unwrap().contains_key(unit_name)
+        self.cache
+            .read()
+            .expect("ModuleLoader cache lock poisoned")
+            .contains_key(unit_name)
     }
 
     /// Get a cached module
     pub fn get_cached(&self, unit_name: &str) -> Option<Module> {
-        self.cache.read().unwrap().get(unit_name).cloned()
+        self.cache
+            .read()
+            .expect("ModuleLoader cache lock poisoned")
+            .get(unit_name)
+            .cloned()
     }
 
     /// Add a module to the cache
     pub fn cache_module(&mut self, module: Module) {
         self.cache
             .write()
-            .unwrap()
+            .expect("ModuleLoader cache lock poisoned")
             .insert(module.name.clone(), module);
     }
 
     /// Clear the cache
     pub fn clear_cache(&mut self) {
-        self.cache.write().unwrap().clear();
+        self.cache
+            .write()
+            .expect("ModuleLoader cache lock poisoned")
+            .clear();
     }
 
     /// Get all cached module names
     pub fn cached_modules(&self) -> Vec<String> {
-        self.cache.read().unwrap().keys().cloned().collect()
+        self.cache
+            .read()
+            .expect("ModuleLoader cache lock poisoned")
+            .keys()
+            .cloned()
+            .collect()
     }
 
     /// Check if a unit file exists
@@ -115,17 +130,6 @@ impl ModuleLoader {
         metadata
             .modified()
             .map_err(|e| ModuleError::LoadError(unit_name.to_string(), e.to_string()))
-    }
-
-    /// Check if cached module is still valid
-    pub fn is_cache_valid(&self, unit_name: &str) -> bool {
-        if let Some(_cached) = self.cache.read().unwrap().get(unit_name) {
-            if let Ok(_file_time) = self.get_unit_mtime(unit_name) {
-                // TODO: Add timestamp tracking to Module structure
-                return true;
-            }
-        }
-        false
     }
 
     /// Find a PPU file for a unit
@@ -189,14 +193,11 @@ impl ModuleLoader {
         if let (Ok(ppu_path), Ok(src_path)) = (
             self.find_ppu_file(unit_name),
             self.find_unit_file(unit_name),
-        ) {
-            if let (Ok(ppu_meta), Ok(src_meta)) = (fs::metadata(&ppu_path), fs::metadata(&src_path))
-            {
-                if let (Ok(ppu_time), Ok(src_time)) = (ppu_meta.modified(), src_meta.modified()) {
+        )
+            && let (Ok(ppu_meta), Ok(src_meta)) = (fs::metadata(&ppu_path), fs::metadata(&src_path))
+                && let (Ok(ppu_time), Ok(src_time)) = (ppu_meta.modified(), src_meta.modified()) {
                     return ppu_time >= src_time;
                 }
-            }
-        }
         false
     }
 }
@@ -364,7 +365,7 @@ mod tests {
 
     #[test]
     fn test_concurrent_cache_write() {
-        let mut loader = ModuleLoader::new();
+        let loader = ModuleLoader::new();
         let mut handles = vec![];
 
         // Spawn multiple threads writing to cache
