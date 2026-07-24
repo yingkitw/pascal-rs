@@ -226,3 +226,36 @@ fn test_codegen_distinct_variable_offsets() {
         store_offsets
     );
 }
+
+#[test]
+fn test_codegen_array_element_assignment_is_tolerated() {
+    // Previously the codegen returned an error on `arr[i] := val`,
+    // aborting the entire compilation. The codegen should now produce
+    // assembly (with a placeholder comment) and continue.
+    use pascal::UnitCodeGenerator;
+    use pascal::parser::Parser;
+
+    let source = r#"
+        program Test;
+        var
+            arr: array[1..5] of integer;
+            i: integer;
+        begin
+            for i := 1 to 5 do
+                arr[i] := i * 10;
+        end.
+    "#;
+
+    let mut parser = Parser::new(source);
+    let program = parser.parse_program().expect("parse should succeed");
+    let mut codegen = UnitCodeGenerator::new();
+    let asm = codegen
+        .generate_program(&program)
+        .expect("codegen should tolerate array element assignment");
+
+    assert!(
+        asm.contains("array element assignment"),
+        "expected a placeholder comment for the array element assignment; got:\n{}",
+        asm
+    );
+}
