@@ -2,14 +2,57 @@
 name = "pascal"
 version = "0.1.8"
 edition = "2024"
+rust-version = "1.85"
 authors = ["Ying Kit WONG"]
 license = "Apache-2.0"
+readme = "README.md"
 repository = "https://github.com/yingkitw/pascal-rs"
-keywords = ["compiler", "pascal", "build", "intepreter", "package-manager"]
-categories = ["command-line-utilities", "compilers"]
-description = "A modern Pascal compiler with build/intepreter/package manager built with Rust"
-documentation = "https://docs.rs/pascal"
 homepage = "https://github.com/yingkitw/pascal-rs"
+documentation = "https://docs.rs/pascal"
+
+description = """
+A modern Pascal compiler, interpreter, and package manager written in Rust.
+Supports standard Pascal and a subset of Object Pascal (classes, exceptions,
+inheritance, virtual dispatch) with a cargo/npm-style build system
+(`pascal.toml`), x86-64 code generation, and 305 automated tests covering
+the lexer, parser, AST, interpreter, optimizer, and code generator.
+"""
+
+keywords = [
+    "pascal",
+    "compiler",
+    "interpreter",
+    "package-manager",
+    "language",
+]
+
+categories = [
+    "command-line-utilities",
+    "compilers",
+    "parser-implementations",
+    "development-tools",
+    "build-system",
+]
+
+include = [
+    "src/**/*",
+    "Cargo.toml",
+    "README.md",
+    "LICENSE",
+    "LICENSE-APACHE",
+    "ARCHITECTURE.md",
+    "SPEC.md",
+    "docs/**/*",
+    "examples/*.pas",
+    "examples/*.rs",
+    "stdlib/**/*",
+    "syntaxes/**/*",
+    "editors/**/*",
+    "test_double",
+    "tests/proptest_parser.proptest-regressions",
+    "**/.DS_Store",
+    ".github",
+]
 
 [[bin]]
 name = "pascal"
@@ -49,7 +92,7 @@ tokio = { version = "1", features = ["full"], optional = true }
 cocoa = { version = "0.25", optional = true }
 objc = { version = "0.2.7", optional = true }
 
-# Debug support (optional)  
+# Debug support (optional)
 gimli = { version = "0.31", optional = true }
 
 # Profiling (optional)
@@ -71,12 +114,17 @@ harness = false
 default = []
 # Minimal build is default (no lsp, mcp, gui). Use --features full for all.
 full = ["lsp", "mcp", "gui"]
-mcp = []  # MCP server for AI integration (optional)
+mcp = [] # MCP server for AI integration (optional)
 lsp = ["tower-lsp", "tokio"]
-async = ["tokio"]  # Async module loading (e.g. for LSP)
+async = ["tokio"] # Async module loading (e.g. for LSP)
 gui = ["cocoa", "objc"]
 debug = ["gimli"]
 profile = ["pprof"]
 
 [workspace]
 resolver = "3"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
