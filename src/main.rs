@@ -1011,8 +1011,18 @@ fn check_file(input: PathBuf) -> Result<()> {
     }
     let source = std::fs::read_to_string(&input)?;
     let mut parser = pascal::parser::Parser::new(&source);
-    match parser.parse_program() {
-        Ok(program) => {
+    let result = parser.parse_program();
+    let recovered_errors = parser.errors().to_vec();
+
+    if let Err(e) = &result {
+        eprintln!("{} {}", "Parse error:".red().bold(), e);
+    }
+    for err in &recovered_errors {
+        eprintln!("  {}", err);
+    }
+
+    match (result, recovered_errors.is_empty()) {
+        (Ok(program), true) => {
             println!(
                 "{} Check passed for '{}' (parse OK)",
                 "Success:".green().bold(),
@@ -1020,11 +1030,7 @@ fn check_file(input: PathBuf) -> Result<()> {
             );
             Ok(())
         }
-        Err(e) => {
-            eprintln!("{} {}", "Parse error:".red().bold(), e);
-            for err in parser.errors() {
-                eprintln!("  {}", err);
-            }
+        _ => {
             std::process::exit(1);
         }
     }

@@ -259,3 +259,27 @@ fn test_codegen_array_element_assignment_is_tolerated() {
         asm
     );
 }
+
+#[test]
+fn test_parser_reports_recovered_errors() {
+    // Regression test: the parser uses error recovery (synchronize /
+    // consume_or_skip), so a syntactically broken program can still
+    // produce an Ok AST. The `check` command and other consumers must
+    // look at parser.errors() (not just the Result) to detect this.
+    use pascal::parser::Parser;
+
+    // Missing semicolon after the program header and a mismatched
+    // paren on the writeln — both recoverable, so parse_program
+    // returns Ok, but errors() should not be empty.
+    let source = "program Recovered\nbegin\n  if x > 0 then\n    writeln('positive')\n  else\n    writeln('negative'\nend.\n";
+
+    let mut parser = Parser::new(source);
+    let result = parser.parse_program();
+    let recovered = parser.errors();
+
+    assert!(result.is_ok(), "parser should recover to Ok: {:?}", result);
+    assert!(
+        !recovered.is_empty(),
+        "parser should have recorded recovered errors even though parse_program returned Ok"
+    );
+}

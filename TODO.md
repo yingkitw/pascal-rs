@@ -2,7 +2,7 @@
 
 ## Current Status
 
-**317 tests passing.** Build clean.
+**318 tests passing.** Build clean.
 
 Interpreter supports standard Pascal + full Object Pascal (classes, exceptions, inheritance, virtual dispatch, properties, arrays, records, enums, sets, string indexing, with, exit, uses, nested functions) + basic generic type parameters for arrays and records.
 
@@ -13,6 +13,7 @@ Recently fixed:
 - fixed `examples/04_arrays.pas` (declared `arr: integer` but used as an array)
 - **x86-64 codegen**: every unit-level variable was sharing `rbp - 8`, so all writes clobbered each other. Now each variable gets a unique stack offset (8, 16, 24, ...). Added `generate_program` API to match the one the codegen tests were already calling.
 - **x86-64 codegen**: `arr[i] := val` no longer aborts the whole compilation; emits a placeholder comment and continues. All 10 example programs now compile end-to-end through the codegen.
+- **`pascal check`**: previously returned "Success" on syntactically broken programs that the parser recovered from. Now also reports the recovered errors and exits 1.
 
 Build system with `pascal.toml` manifest, dependency management (path/git/registry cache), lock file, incremental cache, and topological build ordering.
 

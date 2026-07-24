@@ -164,6 +164,28 @@ fn test_cli_syntax_check_with_errors() {
 }
 
 #[test]
+fn test_cli_syntax_check_with_recovered_errors() {
+    // The parser recovers from many syntax errors (missing semicolons,
+    // mismatched parens) by synchronizing to the next statement. The
+    // parse_program call may still return Ok, but the parser accumulates
+    // the errors it skipped. The `pascal check` command must report
+    // them as failures.
+    let temp_dir = TempDir::new().unwrap();
+    let source_file = temp_dir.path().join("recovered.pas");
+
+    let mut file = File::create(&source_file).unwrap();
+    write!(
+        file,
+        "program Recovered\nbegin\n  if x > 0 then\n    writeln('positive')\n  else\n    writeln('negative'\nend.\n"
+    )
+    .unwrap();
+
+    let mut cmd = Command::cargo_bin("pascal").unwrap();
+    cmd.arg("check").arg(source_file);
+    cmd.assert().failure();
+}
+
+#[test]
 fn test_cli_output_format_asm() {
     let temp_dir = TempDir::new().unwrap();
     let source_file = temp_dir.path().join("test.pas");
