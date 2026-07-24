@@ -362,3 +362,142 @@ fn test_interpret_set_with_enum() {
     "#;
     assert!(execute_program(source).is_ok());
 }
+
+// Multi-argument writeln regression tests.
+// These previously silently dropped every argument after the first, so the
+// tests below must at minimum succeed without error.
+
+#[test]
+fn test_writeln_multi_arg_strings() {
+    let source = r#"
+        program Test;
+        begin
+            writeln('hello, ', 'world');
+            writeln('a', 'b', 'c', 'd');
+        end.
+    "#;
+    assert!(execute_program(source).is_ok());
+}
+
+#[test]
+fn test_writeln_multi_arg_mixed() {
+    let source = r#"
+        program Test;
+        var
+            n: integer;
+            s: string;
+        begin
+            n := 42;
+            s := 'the answer';
+            writeln('n = ', n, ', s = ', s);
+            writeln('sum: ', 1 + 2 + 3);
+        end.
+    "#;
+    assert!(execute_program(source).is_ok());
+}
+
+#[test]
+fn test_write_no_newline_multi_arg() {
+    let source = r#"
+        program Test;
+        begin
+            write('a', 'b', 'c');
+        end.
+    "#;
+    assert!(execute_program(source).is_ok());
+}
+
+#[test]
+fn test_writeln_array_assignment_and_print() {
+    let source = r#"
+        program Test;
+        var
+            arr: array[1..3] of integer;
+            i: integer;
+        begin
+            for i := 1 to 3 do
+                arr[i] := i * 10;
+            for i := 1 to 3 do
+                writeln('arr[', i, '] = ', arr[i]);
+        end.
+    "#;
+    assert!(execute_program(source).is_ok());
+}
+
+#[test]
+fn test_builtin_string_conversions() {
+    let source = r#"
+        program Test;
+        var
+            s: string;
+            n: integer;
+        begin
+            s := inttostr(42);
+            writeln('inttostr: ', s);
+            n := strtoint('123');
+            writeln('strtoint: ', n);
+            s := upcase('hello');
+            writeln('upcase: ', s);
+            s := lowercase('WORLD');
+            writeln('lowercase: ', s);
+        end.
+    "#;
+    assert!(execute_program(source).is_ok());
+}
+
+#[test]
+fn test_builtin_math_extensions() {
+    let source = r#"
+        program Test;
+        var
+            n: integer;
+            r: real;
+        begin
+            n := sqr(5);
+            writeln('sqr(5) = ', n);
+            n := round(3.7);
+            writeln('round(3.7) = ', n);
+            n := trunc(3.9);
+            writeln('trunc(3.9) = ', n);
+            n := power(2, 10);
+            writeln('power(2, 10) = ', n);
+        end.
+    "#;
+    assert!(execute_program(source).is_ok());
+}
+
+#[test]
+fn test_builtin_ordinal_ops() {
+    let source = r#"
+        program Test;
+        var
+            b: boolean;
+            c: char;
+        begin
+            b := odd(7);
+            writeln('odd(7) = ', b);
+            b := odd(8);
+            writeln('odd(8) = ', b);
+            c := succ('a');
+            writeln('succ(a) = ', c);
+            c := pred('b');
+            writeln('pred(b) = ', c);
+        end.
+    "#;
+    assert!(execute_program(source).is_ok());
+}
+
+#[test]
+fn test_builtin_setlength() {
+    let source = r#"
+        program Test;
+        var
+            s: string;
+        begin
+            s := 'Hello, World!';
+            setlength(s, 5);
+            writeln('short: ', s);
+        end.
+    "#;
+    assert!(execute_program(source).is_ok());
+}

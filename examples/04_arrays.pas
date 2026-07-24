@@ -1,7 +1,7 @@
 { Example 04: Arrays - SetLength, indexing, high/low }
 program Arrays;
 var
-  arr: integer;
+  arr: array of integer;
   i, n, sum: integer;
   min, max, len: integer;
 begin
@@ -16,11 +16,15 @@ begin
   writeln('Low: ', low(arr));
   writeln('High: ', high(arr));
 
-  { Sum of default values (all 0) }
+  { Fill the array }
+  for i := 0 to n - 1 do
+    arr[i] := i * i;
+
+  { Sum of values }
   sum := 0;
   for i := 0 to n - 1 do
     sum := sum + arr[i];
-  writeln('Sum of defaults: ', sum);
+  writeln('Sum: ', sum);
 
   writeln('Element 0: ', arr[0]);
   writeln('Element 5: ', arr[5]);

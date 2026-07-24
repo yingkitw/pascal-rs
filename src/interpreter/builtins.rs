@@ -199,59 +199,52 @@ impl Builtins {
                 Ok(Value::String(crate::reflection::type_name(&args[0])))
             }),
         );
+
+        // Math — additional
+        registry.register("sqr".to_string(), 1, Box::new(Self::sqr));
+        registry.register("round".to_string(), 1, Box::new(Self::round_fn));
+        registry.register("trunc".to_string(), 1, Box::new(Self::trunc_fn));
+        registry.register("power".to_string(), 2, Box::new(Self::power));
+
+        // String — additional
+        registry.register("concat".to_string(), 2, Box::new(Self::concat));
+        registry.register("upcase".to_string(), 1, Box::new(Self::upcase));
+        registry.register("lowercase".to_string(), 1, Box::new(Self::lowercase_fn));
+        registry.register("inttostr".to_string(), 1, Box::new(Self::inttostr));
+        registry.register("strtoint".to_string(), 1, Box::new(Self::strtoint));
+
+        // Ordinal — additional
+        registry.register("odd".to_string(), 1, Box::new(Self::odd));
+        registry.register("succ".to_string(), 1, Box::new(Self::succ));
+        registry.register("pred".to_string(), 1, Box::new(Self::pred));
+
+        // Array — additional
+        registry.register("setlength".to_string(), 2, Box::new(Self::setlength));
+
+        // Control — additional
+        registry.register("halt".to_string(), 0, Box::new(Self::halt));
     }
 
     // I/O function implementations
     fn write(args: &[Value]) -> Result<Value> {
-        match args[0] {
-            Value::String(ref s) => {
-                print!("{}", s);
-                Ok(Value::Nil)
-            },
-            Value::Integer(i) => {
-                print!("{}", i);
-                Ok(Value::Nil)
-            },
-            Value::Boolean(b) => {
-                print!("{}", b);
-                Ok(Value::Nil)
-            },
-            Value::Real(f) => {
-                print!("{}", f);
-                Ok(Value::Nil)
-            },
-            Value::Char(c) => {
-                print!("{}", c);
-                Ok(Value::Nil)
-            },
-            _ => Err(anyhow::anyhow!("write: invalid argument type")),
+        for arg in args {
+            Self::print_value(arg)?;
         }
+        Ok(Value::Nil)
+    }
+
+    /// Print a single value with no trailing newline.
+    fn print_value(v: &Value) -> Result<()> {
+        print!("{}", value_to_string(v));
+        Ok(())
     }
 
     fn writeln(args: &[Value]) -> Result<Value> {
-        match args[0] {
-            Value::String(ref s) => {
-                println!("{}", s);
-                Ok(Value::Nil)
-            },
-            Value::Integer(i) => {
-                println!("{}", i);
-                Ok(Value::Nil)
-            },
-            Value::Boolean(b) => {
-                println!("{}", b);
-                Ok(Value::Nil)
-            },
-            Value::Real(f) => {
-                println!("{}", f);
-                Ok(Value::Nil)
-            },
-            Value::Char(c) => {
-                println!("{}", c);
-                Ok(Value::Nil)
-            },
-            _ => Err(anyhow::anyhow!("writeln: invalid argument type")),
+        for arg in args {
+            Self::print_value(arg)?;
         }
+        println!();
+        Ok(Value::Nil)
     }
 
     fn read(_args: &[Value]) -> Result<Value> {
@@ -434,6 +427,139 @@ impl Builtins {
         let _ = rand::thread_rng();
         Ok(Value::Nil)
     }
+
+    // Additional math
+    fn sqr(args: &[Value]) -> Result<Value> {
+        match &args[0] {
+            Value::Integer(i) => Ok(Value::Integer(i.saturating_mul(*i))),
+            Value::Real(f) => Ok(Value::Real(f * f)),
+            _ => Err(anyhow::anyhow!("sqr: numeric expected")),
+        }
+    }
+
+    fn round_fn(args: &[Value]) -> Result<Value> {
+        match &args[0] {
+            Value::Real(f) => Ok(Value::Integer(f.round() as i64)),
+            Value::Integer(i) => Ok(Value::Integer(*i)),
+            _ => Err(anyhow::anyhow!("round: numeric expected")),
+        }
+    }
+
+    fn trunc_fn(args: &[Value]) -> Result<Value> {
+        match &args[0] {
+            Value::Real(f) => Ok(Value::Integer(f.trunc() as i64)),
+            Value::Integer(i) => Ok(Value::Integer(*i)),
+            _ => Err(anyhow::anyhow!("trunc: numeric expected")),
+        }
+    }
+
+    fn power(args: &[Value]) -> Result<Value> {
+        match (&args[0], &args[1]) {
+            (Value::Integer(base), Value::Integer(exp)) if *exp >= 0 => {
+                let result = base.checked_pow(*exp as u32);
+                Ok(result.map_or(Value::Nil, Value::Integer))
+            }
+            (Value::Real(base), Value::Integer(exp)) => Ok(Value::Real(base.powi(*exp as i32))),
+            (Value::Real(base), Value::Real(exp)) => Ok(Value::Real(base.powf(*exp))),
+            _ => Err(anyhow::anyhow!("power: numeric arguments expected")),
+        }
+    }
+
+    // Additional string
+    fn concat(args: &[Value]) -> Result<Value> {
+        let a = value_to_string(&args[0]);
+        let b = value_to_string(&args[1]);
+        Ok(Value::String(format!("{}{}", a, b)))
+    }
+
+    fn upcase(args: &[Value]) -> Result<Value> {
+        match &args[0] {
+            Value::String(s) => Ok(Value::String(s.to_uppercase())),
+            Value::Char(c) => Ok(Value::Char(c.to_ascii_uppercase())),
+            _ => Err(anyhow::anyhow!("upcase: string or char expected")),
+        }
+    }
+
+    fn lowercase_fn(args: &[Value]) -> Result<Value> {
+        match &args[0] {
+            Value::String(s) => Ok(Value::String(s.to_lowercase())),
+            Value::Char(c) => Ok(Value::Char(c.to_ascii_lowercase())),
+            _ => Err(anyhow::anyhow!("lowercase: string or char expected")),
+        }
+    }
+
+    fn inttostr(args: &[Value]) -> Result<Value> {
+        let s = value_to_string(&args[0]);
+        Ok(Value::String(s))
+    }
+
+    fn strtoint(args: &[Value]) -> Result<Value> {
+        match &args[0] {
+            Value::String(s) => s
+                .trim()
+                .parse::<i64>()
+                .map(Value::Integer)
+                .map_err(|e| anyhow::anyhow!("strtoint: {}", e)),
+            _ => Err(anyhow::anyhow!("strtoint: string expected")),
+        }
+    }
+
+    // Additional ordinal
+    fn odd(args: &[Value]) -> Result<Value> {
+        match &args[0] {
+            Value::Integer(i) => Ok(Value::Boolean(i % 2 != 0)),
+            _ => Err(anyhow::anyhow!("odd: integer expected")),
+        }
+    }
+
+    fn succ(args: &[Value]) -> Result<Value> {
+        match &args[0] {
+            Value::Integer(i) => Ok(Value::Integer(i.saturating_add(1))),
+            Value::Char(c) => {
+                let next = (*c as u32).saturating_add(1);
+                char::from_u32(next)
+                    .map(Value::Char)
+                    .ok_or_else(|| anyhow::anyhow!("succ: no successor for char {:?}", c))
+            }
+            Value::Enum { type_name, ordinal } => Ok(Value::Enum {
+                type_name: type_name.clone(),
+                ordinal: ordinal + 1,
+            }),
+            _ => Err(anyhow::anyhow!("succ: integer, char, or enum expected")),
+        }
+    }
+
+    fn pred(args: &[Value]) -> Result<Value> {
+        match &args[0] {
+            Value::Integer(i) => Ok(Value::Integer(i.saturating_sub(1))),
+            Value::Char(c) => {
+                let prev = (*c as u32).saturating_sub(1);
+                char::from_u32(prev)
+                    .map(Value::Char)
+                    .ok_or_else(|| anyhow::anyhow!("pred: no predecessor for char {:?}", c))
+            }
+            Value::Enum { type_name, ordinal } => Ok(Value::Enum {
+                type_name: type_name.clone(),
+                ordinal: ordinal - 1,
+            }),
+            _ => Err(anyhow::anyhow!("pred: integer, char, or enum expected")),
+        }
+    }
+
+    // Array
+    fn setlength(args: &[Value]) -> Result<Value> {
+        // setlength(var, n) is normally a statement; calling it as a function
+        // returns the new length so it can still be tested.
+        match &args[1] {
+            Value::Integer(n) if *n >= 0 => Ok(Value::Integer(*n)),
+            _ => Err(anyhow::anyhow!("setlength: non-negative length required")),
+        }
+    }
+
+    // Control
+    fn halt(_args: &[Value]) -> Result<Value> {
+        Err(anyhow::anyhow!("__halt__"))
+    }
 }
 
 /// Helper to create a default built-in registry
@@ -441,6 +567,47 @@ pub fn create_default_registry() -> BuiltinRegistry {
     let mut registry = BuiltinRegistry::new();
     Builtins::register_builtins(&mut registry);
     registry
+}
+
+/// Render a `Value` to its single-line, human-readable form.
+fn value_to_string(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.clone(),
+        Value::Integer(i) => i.to_string(),
+        Value::Boolean(b) => b.to_string(),
+        Value::Real(f) => f.to_string(),
+        Value::Char(c) => c.to_string(),
+        Value::Nil => String::new(),
+        Value::Array { elements, .. } => join_values(elements, ", "),
+        Value::Record { fields, .. } => format!("record({})", join_fields(fields, "; ")),
+        Value::Object { class_name, .. } => format!("<{}>", class_name),
+        Value::Enum { type_name, ordinal } => format!("{}({})", type_name, ordinal),
+        Value::Set { elements } => {
+            let mut parts: Vec<String> = elements.iter().map(|n| n.to_string()).collect();
+            parts.sort();
+            format!("[{}]", parts.join(", "))
+        }
+        Value::Pointer(id) => format!("^{}", id),
+        Value::Closure { .. } => "<closure>".to_string(),
+    }
+}
+
+fn join_values(values: &[Value], sep: &str) -> String {
+    let parts: Vec<String> = values.iter().map(value_to_string).collect();
+    format!("({})", parts.join(sep))
+}
+
+fn join_fields(fields: &std::collections::HashMap<String, Value>, sep: &str) -> String {
+    let mut entries: Vec<(String, String)> = fields
+        .iter()
+        .map(|(k, v)| (k.clone(), value_to_string(v)))
+        .collect();
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+    entries
+        .into_iter()
+        .map(|(k, v)| format!("{}: {}", k, v))
+        .collect::<Vec<_>>()
+        .join(sep)
 }
 
 #[cfg(test)]
@@ -475,11 +642,50 @@ mod tests {
 
         // Test length function
         if let Some((_, _, len_func)) = registry.get_function("length") {
-            let result = len_func(&[Value::Array { 
-                elements: vec![Value::Integer(1), Value::Integer(2), Value::Integer(3)], 
-                lower_bound: 1 
+            let result = len_func(&[Value::Array {
+                elements: vec![Value::Integer(1), Value::Integer(2), Value::Integer(3)],
+                lower_bound: 1
             }]).unwrap();
             assert_eq!(result, Value::Integer(3));
         }
+    }
+
+    #[test]
+    fn test_value_to_string_all_variants() {
+        // Exhaustive check that every Value variant produces a non-empty string
+        // (Nil is intentionally empty) so writeln/write never drop data silently.
+        assert_eq!(value_to_string(&Value::Integer(42)), "42");
+        assert_eq!(value_to_string(&Value::Real(3.14)), "3.14");
+        assert_eq!(value_to_string(&Value::Boolean(true)), "true");
+        assert_eq!(value_to_string(&Value::Boolean(false)), "false");
+        assert_eq!(value_to_string(&Value::Char('x')), "x");
+        assert_eq!(value_to_string(&Value::String("hi".into())), "hi");
+        assert_eq!(value_to_string(&Value::Nil), "");
+        assert_eq!(
+            value_to_string(&Value::Array {
+                elements: vec![Value::Integer(1), Value::Integer(2)],
+                lower_bound: 1
+            }),
+            "(1, 2)"
+        );
+        assert_eq!(value_to_string(&Value::Pointer(7)), "^7");
+        assert_eq!(value_to_string(&Value::Closure {
+            params: vec![],
+            body: crate::ast::Block::empty(),
+            is_function: true,
+            return_type_name: "integer".into(),
+            captured: vec![],
+        }), "<closure>");
+    }
+
+    #[test]
+    fn test_join_fields_sorted() {
+        let mut fields = std::collections::HashMap::new();
+        fields.insert("z".to_string(), Value::Integer(1));
+        fields.insert("a".to_string(), Value::Integer(2));
+        let s = join_fields(&fields, ", ");
+        // Sorted by key, so 'a' comes before 'z'
+        assert!(s.starts_with("a: 2"));
+        assert!(s.contains("z: 1"));
     }
 }

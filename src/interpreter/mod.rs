@@ -541,6 +541,41 @@ impl Interpreter {
                     } else {
                         return Err(anyhow::anyhow!("dispose requires a pointer variable"));
                     }
+                } else if name_lower == "halt" {
+                    return Err(anyhow::anyhow!("program halted"));
+                } else if name_lower == "setlength" {
+                    // setlength(var, n) — resize a string or array
+                    if let Some(Expr::Variable(var_name)) = arguments.first() {
+                        let new_len = self.eval_expr(&arguments[1])?.as_integer()?;
+                        if new_len < 0 {
+                            return Err(anyhow::anyhow!("setlength: negative length"));
+                        }
+                        match self.runtime.get_variable_value(var_name) {
+                            Some(Value::String(s)) => {
+                                self.runtime.set_variable(
+                                    var_name.clone(),
+                                    Value::String(s.chars().take(new_len as usize).collect()),
+                                );
+                            }
+                            Some(Value::Array { elements, lower_bound, .. }) => {
+                                let new_size = new_len as usize;
+                                let mut new_elements = elements.clone();
+                                new_elements.resize(new_size, Value::Nil);
+                                self.runtime.set_variable(
+                                    var_name.clone(),
+                                    Value::Array { elements: new_elements, lower_bound },
+                                );
+                            }
+                            _ => {
+                                return Err(anyhow::anyhow!(
+                                    "setlength: {} is not a string or array",
+                                    var_name
+                                ));
+                            }
+                        }
+                    } else {
+                        return Err(anyhow::anyhow!("setlength requires a variable"));
+                    }
                 } else {
                     let args: Vec<Value> = arguments.iter()
                         .map(|arg| self.eval_expr(arg))

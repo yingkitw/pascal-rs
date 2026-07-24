@@ -663,10 +663,9 @@ Yes. Licensed under Apache-2.0, which permits commercial use, modification, and 
 ### Current Limitations
 
 - **Inline class method bodies** — parser doesn't yet support method bodies inside `type` class declarations (interpreter supports classes via AST)
-- **Array element assignment** — `arr[i] := val` not yet supported
 - **Multi-dimensional arrays** — single dimension only in interpreter
-- **File I/O** — not implemented
-- **Generics/templates** — `type TList<T> = array of T;` parsing supported, but instantiation is basic
+- **File I/O** — not implemented (only stdout via `write`/`writeln`)
+- **Generics/templates** — basic generic type parameters only (`type TList<T> = array of T;`); no constraints, variance, or generic functions
 - **GUI framework** — not included (use FPC/Lazarus for GUI apps)
 
 ### In Progress (see [TODO.md](TODO.md))

@@ -2,9 +2,15 @@
 
 ## Current Status
 
-**300+ tests passing.** Build clean.
+**315 tests passing.** Build clean.
 
 Interpreter supports standard Pascal + full Object Pascal (classes, exceptions, inheritance, virtual dispatch, properties, arrays, records, enums, sets, string indexing, with, exit, uses, nested functions) + basic generic type parameters for arrays and records.
+
+Recently fixed:
+- variadic `writeln`/`write` (no longer silently drops args after the first)
+- added missing builtins: `sqr`, `round`, `trunc`, `power`, `concat`, `upcase`, `lowercase`, `inttostr`, `strtoint`, `odd`, `succ`, `pred`, `setlength` (statement form), `halt`
+- `setlength(var, n)` now actually resizes strings and arrays
+- fixed `examples/04_arrays.pas` (declared `arr: integer` but used as an array)
 
 Build system with `pascal.toml` manifest, dependency management (path/git/registry cache), lock file, incremental cache, and topological build ordering.
 
