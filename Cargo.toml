@@ -31,7 +31,7 @@ toml = "0.8"
 bincode = "1.3"
 rayon = "1.10"
 rmcp = "0.14"
-sha2 = "0.10"
+sha2 = "0.11"
 
 # CLI output
 colored = "2.1"
