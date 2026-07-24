@@ -112,3 +112,6 @@ profile/
 *.db
 *.sqlite
 *.sqlite3
+
+# Agent development loop (not for distribution)
+AGENTS.md
